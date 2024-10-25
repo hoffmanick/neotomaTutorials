@@ -475,3 +475,5 @@ Stratiplot(x=counts28222[-1]*100,y=counts28222$age,ylab="Years BP", xlab="Pollen
 Stratiplot(x=counts27849[-1]*100,y=counts27849$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="27849",type="h")
 
 ```
+
+<div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
