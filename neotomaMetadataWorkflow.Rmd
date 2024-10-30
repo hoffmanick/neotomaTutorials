@@ -311,7 +311,8 @@ Look and despair ! With the exception of site "Lake Tanganyika [SD cores]" (our 
 
 This raises the question, at what spatial resolution, and for what sorts of analyses, do these mismatches start to matter?
 
-# A toy exercise
+# A toy exercise 
+(this part needs the most help - maybe junk this entire section - trying to figure out a way to demonstrate where or that the collection unit location data matter)
 
 ```{r exercise}
 
@@ -475,5 +476,42 @@ Stratiplot(x=counts28222[-1]*100,y=counts28222$age,ylab="Years BP", xlab="Pollen
 Stratiplot(x=counts27849[-1]*100,y=counts27849$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="27849",type="h")
 
 ```
+
+
+# Further exploration of Neotoma metadata
+
+We were able to find important location information by downloading the entire collectionunits table, and we could do that because we knew about the existence of this table. But Neotoma has a sophisticated data model - there are tables with relevant information whose existence we're not going to know about.  
+
+Luckily, Neotoma's data model is open, and available for exploration at [Open Neotoma](https://open.neotomadb.org/dbschema/ndb/). We can use this resource to explore further metadata. If for instance, we wanted to see what other information is connected to our collection units, we can navigate to the [page](https://open.neotomadb.org/dbschema/ndb/tables/collectionunits.html) in Open Neotoma on the collection units tables. This page provides the names and definitions of the fields in the collection units table, and if you scroll to the bottom of the page, you can also see what other tables the collection units table is connected to through primary/foreign key pairs.
+
+<img src="./images/collectionunits_relationships.JPG" >
+
+If we wanted to know more about the substrate for our collection units, we could download the rocktypes table that we see referenced on this page (using the same download-table API call from earlier) and filter the table for the relevant substrate ids from our collection units.
+
+```{r further-explore}
+
+text2="rocktypes"
+rocktypes = content(GET(paste0('https://api.neotomadb.org/v2.0/data/dbtables/',text2,'?count=false&limit=99999&offset=0')))$data
+
+rock_mat = matrix(nrow = length(rocktypes),ncol=6)
+for (i in seq(length(rocktypes))) {
+  for (j in seq(6)) {
+    if (!is.null(rocktypes[[i]][[j]])) {
+      rock_mat[i,j] = rocktypes[[i]][[j]]
+    }
+  }
+}
+
+rock_df = as.data.frame(rock_mat)
+
+names(rock_df) = c("rocktypeid","rocktype","higherrocktypeid","description","recdatecreated","recdatemodified")
+
+filtered_colls = filtered_colls %>% left_join(rock_df,by=join_by("substrateid" == "rocktypeid"))
+
+datatable(filtered_colls[c(1,3,6,14,15,16,21,22,23)],rownames=FALSE)
+
+```
+
+If we do that, we find the substrate is either clay or mud, silt, or unrecorded. I guess that's not too surprising for sediment cores !
 
 <div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
