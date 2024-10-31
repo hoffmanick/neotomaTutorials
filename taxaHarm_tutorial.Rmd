@@ -1,0 +1,134 @@
+---
+title: "Taxon Harmonization"
+author: "Nick Hoffman"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r packages,message=FALSE,warning=FALSE}
+
+library(neotoma2)
+library(tidyverse)
+library(sf)
+library(geojsonsf)
+library(httr)
+library(jsonlite)
+library(stringr)
+library(ggplot2)
+```
+
+```{r get-data}
+
+lats = c(-16,-16,-36,-36) %>% as.data.frame()
+lons = c(10,41,10,41) %>% as.data.frame()
+
+coordinates = lats %>% cbind(lons) 
+names(coordinates) = c("lat","lon")
+
+coordinates = coordinates %>% st_as_sf(coords=c("lon","lat"), crs="WGS84") %>% mutate(dummyID = 1) %>% group_by(dummyID) %>% dplyr::summarize() %>% st_cast("POLYGON")
+
+coord_json = sf_geojson(coordinates)
+
+
+altmin = 1000 #m
+
+sites = content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?altmin=",altmin,"&loc=",coord_json,"&limit=999&offset=0")))$data
+
+
+idx = 0
+for (i in seq(length(sites))) {
+  for (j in seq(length(sites[[i]]$collectionunits))) {
+    for (k in seq(length(sites[[i]]$collectionunits[[j]]$datasets))) {
+    idx = idx + 1
+    }
+    }
+}
+
+
+sites_mat = matrix(nrow=idx,ncol=11)
+
+idx2 = 0
+for (i in seq(length(sites))) {
+  for (j in seq(length(sites[[i]]$collectionunits))) {
+    for (k in seq(length(sites[[i]]$collectionunits[[j]]$datasets))) {
+    idx2 = idx2 + 1
+    for (m in seq(5)) {
+      if (!is.null(sites[[i]][[m]])) {
+        sites_mat[[idx2, m]] = sites[[i]][[m]]
+      }
+    }
+    
+     if (!is.null(sites[[i]]$collectionunits[[j]]$handle)) {
+        sites_mat[[idx2,6]] = sites[[i]]$collectionunits[[j]]$handle
+     }
+       if (!is.null(sites[[i]]$collectionunits[[j]]$collectionunit)) {
+        sites_mat[[idx2,7]] = sites[[i]]$collectionunits[[j]]$collectionunit
+       }
+       if (!is.null(sites[[i]]$collectionunits[[j]]$collectionunitid)) {
+        sites_mat[[idx2,8]] = sites[[i]]$collectionunits[[j]]$collectionunitid
+       }
+       if (!is.null(sites[[i]]$collectionunits[[j]]$collectionunittype)) {
+        sites_mat[[idx2,9]] = sites[[i]]$collectionunits[[j]]$collectionunittype
+       }
+       if (!is.null(sites[[i]]$collectionunits[[j]]$dataset[[k]]$datasetid)) {
+        sites_mat[[idx2,10]] = sites[[i]]$collectionunits[[j]]$dataset[[k]]$datasetid
+       }
+       if (!is.null(sites[[i]]$collectionunits[[j]]$dataset[[k]]$datasettype)) {
+        sites_mat[[idx2,11]] = sites[[i]]$collectionunits[[j]]$dataset[[k]]$datasettype
+       }
+    }
+  }
+}
+
+sites_df = as.data.frame(sites_mat)
+
+names(sites_df) = c("siteid","sitename","sitedescription","geography","altitude","handle","collectionunit","collectionunitid","collectionunittype","datasetid","datasettype")
+
+siteids = sites_df %>% distinct(siteid) %>% dplyr::mutate()
+
+
+sites_neo = get_sites(as.numeric(siteids$siteid),all_data=TRUE)
+
+data = samples(get_downloads(get_datasets(sites_neo,all_data=TRUE),all_data=TRUE))
+
+pollendata = data %>% dplyr::filter(datasettype=="pollen")
+
+pollendata %>% group_by(variablename) %>% count() %>% arrange(desc(n))
+  
+
+apd_harmTable = read.csv("APD_dictionnary_export.csv",row.names=NULL,sep=";")
+
+pollendata = pollendata %>% left_join(apd_harmTable, by=join_by(variablename == Taxon..original.name.))
+
+pollendata = pollendata %>% mutate(Taxon..revised.nomenclature. = case_when(
+  str_detect(variablename,regex('poaceae', ignore_case = T)) ~ "Poaceae undiff.", 
+  TRUE ~ Taxon..revised.nomenclature.)) %>% mutate(Family.name = case_when(
+  str_detect(variablename,regex('poaceae', ignore_case = T)) ~ "POACEAE", 
+  TRUE ~ Family.name))
+
+
+pollen_alt = pollendata %>% mutate(elevbins = round(elev,-2)) %>% drop_na(age) %>% mutate(agebins = round(age/5000)*5000)
+
+pollen_alt = pollen_alt %>% group_by(elevbins,Family.name,agebins) %>% summarize(polcount = sum(value)) 
+
+pol_total = pollen_alt %>% ungroup() %>% group_by(elevbins,agebins) %>% summarize(total = sum(polcount))
+
+pollen_alt = pollen_alt %>% left_join(pol_total) %>% mutate(prop = polcount/total*100) %>% drop_na()
+
+wide_alt = pollen_alt %>% pivot_wider(id_cols=elevbins,names_from=Family.name,values_from=prop)
+
+pollen_alt_young = pollen_alt %>% dplyr::filter(agebins < 29000) 
+toptaxa = pollen_alt_young %>% group_by(Family.name) %>% dplyr::summarize(propsum = sum(prop)) %>% arrange(desc(propsum)) %>% head(n=10)
+
+pollen_alt_young = pollen_alt_young %>% dplyr::filter(Family.name %in% toptaxa$Family.name)
+
+ggplot(pollen_alt_young) +
+  geom_line(mapping=aes(x=elevbins,y=log(prop),group=agebins,color=as.factor(agebins)),lwd=2) + 
+  facet_wrap(~Family.name) 
+
+
+```
