@@ -82,6 +82,11 @@ library(jsonlite)
 library(httr)
 library(ggplot2)
 library(analogue)
+library(geodata)
+library(elevatr)
+library(raster)
+library(tmap)
+
 ```
 
 # Getting Data
@@ -114,7 +119,7 @@ In particular, we're going to use an API that requires a Neotoma siteid, or comm
 ```{r api-sites, echo=TRUE, warning=FALSE}
 
 
-siteidString = paste0(tanganyikaSites$siteid,collapse=",")
+siteidString = paste0(as.data.frame(tanganyikaSites)$siteid,collapse=",")
 
 apiCall = paste0('https://api.neotomadb.org/v2.0/data/sites/',siteidString,'/datasets')
 
@@ -320,44 +325,48 @@ samps = samples(get_downloads(get_datasets(tanganyikaSites)))
 
 pollen = samps %>% dplyr::filter(datasettype=="pollen" & element == "pollen")
 
-count_coll = pollen %>% dplyr::select(collunitid,age,ecologicalgroup,value) %>% group_by(collunitid,age) %>% 
+toptaxa = pollen %>% group_by(variablename) %>% count() %>% arrange(desc(n)) %>% head(n=6)
+
+count_coll = pollen %>% dplyr::filter(variablename %in% toptaxa$variablename) %>% dplyr::select(collunitid,age,variablename,value) %>%
+  group_by(collunitid,age) %>% 
   dplyr::mutate(pollcount = sum(value, na.rm=TRUE)) %>%
   ungroup() %>%
-  group_by(collunitid,age,ecologicalgroup) %>%
-  mutate(sum_eco = sum(value,na.rm=TRUE)) %>%
+  group_by(collunitid,age,variablename) %>%
+  mutate(sum_poll = sum(value,na.rm=TRUE)) %>%
   ungroup() %>%
-  group_by(ecologicalgroup) %>%
-  mutate(prop = sum_eco / pollcount) %>%
-  dplyr::select(collunitid, age, ecologicalgroup, prop) %>% 
+  group_by(variablename) %>%
+  mutate(prop = sum_poll / pollcount) %>%
+  dplyr::select(collunitid, age, variablename, prop) %>% 
   mutate(prop = as.numeric(prop)) %>%
   drop_na(age) %>% 
   distinct()
 
 counts_coll = tidyr::pivot_wider(count_coll,
                              id_cols = c(age,collunitid),
-                             names_from = ecologicalgroup,
+                             names_from = variablename,
                              values_from = prop,
                              values_fill = 0)
 
 
 counts_coll = counts_coll %>% left_join(filtered_colls, by = join_by(collunitid == collectionunitid))
 
-count_site = pollen %>% dplyr::select(siteid,age,ecologicalgroup,value) %>% group_by(siteid,age) %>% 
+count_site = pollen %>% dplyr::filter(variablename %in% toptaxa$variablename) %>% dplyr::select(siteid,age,variablename,value) %>% 
+  group_by(siteid,age) %>% 
   dplyr::mutate(pollcount = sum(value, na.rm=TRUE)) %>%
   ungroup() %>%
-  group_by(siteid,age,ecologicalgroup) %>%
-  mutate(sum_eco = sum(value,na.rm=TRUE)) %>%
+  group_by(siteid,age,variablename) %>%
+  mutate(sum_poll = sum(value,na.rm=TRUE)) %>%
   ungroup() %>%
-  group_by(ecologicalgroup) %>%
-  mutate(prop = sum_eco / pollcount) %>%
-  dplyr::select(siteid, age, ecologicalgroup, prop) %>% 
+  group_by(variablename) %>%
+  mutate(prop = sum_poll / pollcount) %>%
+  dplyr::select(siteid, age, variablename, prop) %>% 
   mutate(prop = as.numeric(prop)) %>%
   drop_na(age) %>% 
   distinct()
 
 counts_site = tidyr::pivot_wider(count_site,
                              id_cols = c(age,siteid),
-                             names_from = ecologicalgroup,
+                             names_from = variablename,
                              values_from = prop,
                              values_fill = 0)
 
@@ -368,112 +377,249 @@ counts_site = counts_site %>% left_join(as.data.frame(tanganyikaSites), by=join_
 counts_coll = counts_coll %>% dplyr::mutate(gpslatitude = round(as.numeric(gpslatitude),6))
 counts_coll = counts_coll %>% dplyr::mutate(gpslongitude = round(as.numeric(gpslongitude),6))
 
+
+#clim2 <- geodata::worldclim_global(var = 'bio', res = 0.5, path=tempdir())
+
+#lc_tree = landcover(var='trees',path=tempdir())
+#lc_grass =  landcover(var='grassland',path=tempdir())
+
+
+
+
+lats = c(-3,-3,-9,-9) %>% as.data.frame()
+lons = c(28,32,28,32) %>% as.data.frame()
+
+coordinates = lats %>% cbind(lons) 
+names(coordinates) = c("lat","lon")
+
+coordinates = coordinates %>% st_as_sf(coords=c("lon","lat"), crs="WGS84") %>% mutate(dummyID = 1) %>% group_by(dummyID) %>% dplyr::summarize() %>% st_cast("POLYGON")
+
+#lc_tree_raster <- raster("lc_eraster.tif")
+
+#lc_grass_raster <- raster("lc_grass_raster.tif")
+
+clim30_subset=stack("clim30_subset.tif")
+
+#coll_map = raster::extract(clim30_12,st_coordinates(filteredColl_sf))
+#site_map = raster::extract(clim30_12,as.data.frame(tanganyikaSites)[c(4,3)])
+
+
+
+coll_bioclim = raster::extract(clim30_subset,st_coordinates(filteredColl_sf)) %>% cbind(filteredColl_sf)
+site_bioclim = raster::extract(clim30_subset,as.data.frame(tanganyikaSites)[c(4,3)]) %>% cbind(as.data.frame(tanganyikaSites))
+
+
+
+counts_site_young = counts_site %>% group_by(siteid) %>% dplyr::filter(age == min(age)) %>% left_join(site_bioclim)
+counts_coll_young =  counts_coll %>% group_by(collunitid) %>% dplyr::filter(age == min(age)) %>% left_join(coll_bioclim)
+
+
+names(counts_coll_young) = c("age","collunitid","Olea capensis","Brachystegia","Alchornea","Podocarpus","Cyperaceae","Poaceae","handle","siteid","colltypeid","depenvtid","collunitname","colldate","colldevice","lat","lon","altitude","gpserror","waterdepth","substrateid","slopeaspect","slopeangle","location","notes","datecreated","datemodified","bio1","bio2","bio3","bio4","bio5","bio6","bio7","bio8","bio9","bio10","bio11","bio12","bio13","bio14","bio15","bio16","bio17","bio18","bio19","collectionunitid","geometry")
+
+names(counts_site_young) = c("age","siteid","Olea capensis","Brachystegia","Alchornea","Podocarpus","Cyperaceae","Poaceae","sitename", "lat","lon","area","notes","description","elev","bio1","bio2","bio3","bio4","bio5","bio6","bio7","bio8","bio9","bio10","bio11","bio12","bio13","bio14","bio15","bio16","bio17","bio18","bio19")
+
+names(clim30_subset) = c("bio1","bio2","bio3","bio4","bio5","bio6","bio7","bio8","bio9","bio10","bio11","bio12","bio13","bio14","bio15","bio16","bio17","bio18","bio19")
+
+
+coll_mod = glm(Cyperaceae ~ bio1 + bio2 + bio3 + bio4 + bio5 + bio6 + bio7 + bio8 + bio9 + bio10 + bio11 + bio12 + bio13 + bio14 + bio15 + bio16 + bio17 + bio18 + bio19, data=counts_coll_young)
+
+coll_step = step(coll_mod)
+
+
+site_mod = glm(Cyperaceae ~ bio1 + bio2 + bio3 + bio4 + bio5 + bio6 + bio7 + bio8 + bio9 + bio10 + bio11 + bio12 + bio13 + bio14 + bio15 + bio16 + bio17 + bio18 + bio19, data=counts_site_young)
+
+site_step = step(site_mod)
+
+
+coll_pred = predict(clim30_subset,model=coll_step)
+
+
+site_pred = predict(clim30_subset,model=site_step)
+
+difference = coll_pred - site_pred
+
+plot(coll_pred)
+plot(site_pred)
+plot(difference)
+
+
+## all equal 0
+##coll_lc = raster::extract(lc_raster,st_coordinates(filteredColl_sf))
+##site_lc = raster::extract(lc_raster,as.data.frame(tanganyikaSites)[c(4,3)])
+## all equal 0
+#coll_grass = raster::extract(lc_grass_raster,st_coordinates(filteredColl_sf))
+#site_grass = raster::extract(lc_grass_raster,as.data.frame(tanganyikaSites)[c(4,3)])
+
+#depth_raster = get_aws_terrain(coordinates,prj=st_crs(coordinates),z=5)
+
+depth_raster = raster("depth_raster.tif")
+site_depth = raster::extract(depth_raster,as.data.frame(tanganyikaSites)[c(4,3)])
+
+
+
+site_sf = counts_site %>% st_as_sf(coords=c("long","lat"),crs="WGS84") %>% dplyr::select(siteid) %>% distinct()
+
+
+buffer_radius <- 25000  # Radius in meters
+coll_circle <- st_buffer(filteredColl_sf, dist = buffer_radius)
+site_circle <- st_buffer(site_sf, dist = buffer_radius)
+
+
+extent_region <- extent(coordinates) # Replace with your area coordinates
+
+grass_lc_subset = raster("grass_lc_subset.tif")
+
+
+tm_shape(grass_lc_subset) + tm_raster(style="cont") + 
+    tm_shape(filteredColl_sf) + tm_dots(col="red",size=0.5,alpha=0.5) +
+    tm_shape(site_sf) + tm_dots(col="lightblue",size=0.5,alpha=0.5) +
+    tm_shape(coll_circle) + tm_borders(col="red",alpha=0.5) +
+    tm_shape(site_circle) + tm_borders(col="lightblue",alpha=0.5)
+
+
+
+# Function to crop, mask, and calculate mean for each polygon
+calculate_mean_grass <- function(poly) {
+  cropped <- raster::crop(grass_lc_subset, as_Spatial(poly))          # Crop to bounding box
+  masked <- raster::mask(cropped, as_Spatial(poly))               # Mask to polygon shape
+  mean_val <- cellStats(masked, stat = 'mean', na.rm = TRUE)  # Calculate mean
+  return(mean_val)
+}
+
+
+
+
+mean_coll_grass <- lapply(1:nrow(coll_circle), function(i) calculate_mean_grass(coll_circle[i, ]))
+mean_coll_grass <- unlist(mean_coll_grass)  # Convert to numeric vector if needed
+
+
+mean_site_grass <- lapply(1:nrow(site_circle), function(i) calculate_mean_grass(site_circle[i, ]))
+mean_site_grass <- unlist(mean_site_grass)  # Convert to numeric vector if needed
+
+
+
+coll_circle = coll_circle %>% cbind(mean_coll_grass)
+
+site_circle = site_circle %>% cbind(mean_site_grass)
+
+
+
+counts_coll = counts_coll %>% dplyr::left_join(coll_circle, by=join_by(collunitid == collectionunitid)) 
+
+counts_site = counts_site %>% dplyr::left_join(site_circle, by=join_by(siteid == siteid)) 
+
+
+counts_coll_young = counts_coll %>% dplyr::filter(age <100) %>% pivot_longer(cols=c("Olea capensis","Brachystegia","Alchornea","Podocarpus","Cyperaceae","Poaceae"),names_to="taxon",values_to="percent")
+counts_site_young = counts_site  %>% dplyr::filter(age <100) %>% pivot_longer(cols=c("Olea capensis","Brachystegia","Alchornea","Podocarpus","Cyperaceae","Poaceae"),names_to="taxon",values_to="percent")
+
 ggplot() +
-  geom_point(data = counts_coll, mapping=aes(y=gpslatitude,x=gpslongitude , size=(UPHE*UPHE*UPHE*UPHE)),color="red",alpha=0.1) +
-  geom_point(data = counts_site, mapping=aes(y=lat,x=long, size=(UPHE*UPHE*UPHE*UPHE)),color="green",alpha=0.1) +
-  theme_bw() +
-  theme(legend.position="none")
+  geom_point(data = counts_coll_young, mapping=aes(x=mean_coll_grass,y=percent),col="red") +
+ # geom_smooth(data = counts_coll_young, mapping=aes(x=mean_coll_grass,y=percent),col="red") +
+  geom_point(data = counts_site_young, mapping=aes(x=mean_site_grass,y=percent),col="blue") +
+  # geom_smooth(data = counts_site_young, mapping=aes(x=mean_site_grass,y=percent),col="blue") +
+  facet_wrap(~taxon,scales="free")
+
 
 ```
 
 ```{r testing}
 
-toptaxa = pollen %>% group_by(variablename) %>% count() %>% arrange(desc(n)) %>% head(n=6)
+#toptaxa = pollen %>% group_by(variablename) %>% count() %>% arrange(desc(n)) %>% head(n=6)
 
-count_coll = pollen[pollen$variablename %in% toptaxa$variablename,] %>% dplyr::select(collunitid,age,variablename,value) %>% group_by(collunitid,age) %>% 
-  dplyr::mutate(pollcount = sum(value, na.rm=TRUE)) %>%
-  ungroup() %>%
-  group_by(collunitid,age,variablename) %>%
-  mutate(sum_eco = sum(value,na.rm=TRUE)) %>%
-  ungroup() %>%
-  group_by(variablename) %>%
-  mutate(prop = sum_eco / pollcount) %>%
-  dplyr::select(collunitid, age, variablename, prop) %>% 
-  mutate(prop = as.numeric(prop)) %>%
-  drop_na(age) %>% 
-  distinct()
+#count_coll = pollen[pollen$variablename %in% toptaxa$variablename,] %>% dplyr::select(collunitid,age,variablename,value) %>% group_by(collunitid,age) %>% 
+#  dplyr::mutate(pollcount = sum(value, na.rm=TRUE)) %>%
+#  ungroup() %>%
+#  group_by(collunitid,age,variablename) %>%
+#  mutate(sum_eco = sum(value,na.rm=TRUE)) %>%
+#  ungroup() %>%
+#  group_by(variablename) %>%
+#  mutate(prop = sum_eco / pollcount) %>%
+#  dplyr::select(collunitid, age, variablename, prop) %>% 
+#  mutate(prop = as.numeric(prop)) %>%
+#  drop_na(age) %>% 
+#  distinct()
 
-widetable <- count_coll %>%
-  dplyr::select(age, variablename, prop,collunitid) %>% 
-  mutate(prop = as.numeric(prop))
+#widetable <- count_coll %>%
+#  dplyr::select(age, variablename, prop,collunitid) %>% 
+#  mutate(prop = as.numeric(prop))
 
-counts <- tidyr::pivot_wider(widetable,
-                             id_cols = c(age,collunitid),
-                             names_from = variablename,
-                             values_from = prop,
-                             values_fill = 0)
+#counts <- tidyr::pivot_wider(widetable,
+#                             id_cols = c(age,collunitid),
+#                             names_from = variablename,
+#                             values_from = prop,
+#                             values_fill = 0)
 
 
 
-counts35469 = counts %>% dplyr::filter(collunitid==35469) %>% dplyr::select(!collunitid)
-counts35238 = counts %>% dplyr::filter(collunitid==35238) %>% dplyr::select(!collunitid)
-counts35239 = counts %>% dplyr::filter(collunitid==35239) %>% dplyr::select(!collunitid)
-counts35456 = counts %>% dplyr::filter(collunitid==35456) %>% dplyr::select(!collunitid)
-counts35470 = counts %>% dplyr::filter(collunitid==35470) %>% dplyr::select(!collunitid)
-counts36319 = counts %>% dplyr::filter(collunitid==36319) %>% dplyr::select(!collunitid)
-counts36320 = counts %>% dplyr::filter(collunitid==36320) %>% dplyr::select(!collunitid)
-counts36321 = counts %>% dplyr::filter(collunitid==36321) %>% dplyr::select(!collunitid)
-counts38141 = counts %>% dplyr::filter(collunitid==38141) %>% dplyr::select(!collunitid)
-counts38142 = counts %>% dplyr::filter(collunitid==38142) %>% dplyr::select(!collunitid)
-counts43354 = counts %>% dplyr::filter(collunitid==43354) %>% dplyr::select(!collunitid)
+#counts35469 = counts %>% dplyr::filter(collunitid==35469) %>% dplyr::select(!collunitid)
+#counts35238 = counts %>% dplyr::filter(collunitid==35238) %>% dplyr::select(!collunitid)
+#counts35239 = counts %>% dplyr::filter(collunitid==35239) %>% dplyr::select(!collunitid)
+#counts35456 = counts %>% dplyr::filter(collunitid==35456) %>% dplyr::select(!collunitid)
+#counts35470 = counts %>% dplyr::filter(collunitid==35470) %>% dplyr::select(!collunitid)
+#counts36319 = counts %>% dplyr::filter(collunitid==36319) %>% dplyr::select(!collunitid)
+#counts36320 = counts %>% dplyr::filter(collunitid==36320) %>% dplyr::select(!collunitid)
+#counts36321 = counts %>% dplyr::filter(collunitid==36321) %>% dplyr::select(!collunitid)
+#counts38141 = counts %>% dplyr::filter(collunitid==38141) %>% dplyr::select(!collunitid)
+#counts38142 = counts %>% dplyr::filter(collunitid==38142) %>% dplyr::select(!collunitid)
+#counts43354 = counts %>% dplyr::filter(collunitid==43354) %>% dplyr::select(!collunitid)
 
 ```
 ```{r test-2}
 
-Stratiplot(x=counts35469[-1]*100,y=counts35469$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="35469",type="h")
-Stratiplot(x=counts35238[-1]*100,y=counts35238$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="35238",type="h")
-Stratiplot(x=counts35239[-1]*100,y=counts35239$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="35239",type="h")
-Stratiplot(x=counts35456[-1]*100,y=counts35456$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="35456",type="h")
-Stratiplot(x=counts35470[-1]*100,y=counts35470$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="35470",type="h")
-Stratiplot(x=counts36319[-1]*100,y=counts36319$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="36319",type="h")
-Stratiplot(x=counts36320[-1]*100,y=counts36320$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="36320",type="h")
-Stratiplot(x=counts36321[-1]*100,y=counts36321$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="36321",type="h")
-Stratiplot(x=counts38141[-1]*100,y=counts38141$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="38141",type="h")
-Stratiplot(x=counts38142[-1]*100,y=counts38142$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="38142",type="h")
-Stratiplot(x=counts43354[-1]*100,y=counts43354$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="43354",type="h")
+#Stratiplot(x=counts35469[-1]*100,y=counts35469$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="35469",type="h")
+#Stratiplot(x=counts35238[-1]*100,y=counts35238$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="35238",type="h")
+#Stratiplot(x=counts35239[-1]*100,y=counts35239$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="35239",type="h")
+#Stratiplot(x=counts35456[-1]*100,y=counts35456$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="35456",type="h")
+#Stratiplot(x=counts35470[-1]*100,y=counts35470$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="35470",type="h")
+#Stratiplot(x=counts36319[-1]*100,y=counts36319$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="36319",type="h")
+#Stratiplot(x=counts36320[-1]*100,y=counts36320$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="36320",type="h")
+#Stratiplot(x=counts36321[-1]*100,y=counts36321$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="36321",type="h")
+#Stratiplot(x=counts38141[-1]*100,y=counts38141$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="38141",type="h")
+#Stratiplot(x=counts38142[-1]*100,y=counts38142$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="38142",type="h")
+#Stratiplot(x=counts43354[-1]*100,y=counts43354$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="43354",type="h")
 
 
 ```
 ```{r test-3}
 
-count_site = pollen[pollen$variablename %in% toptaxa$variablename,] %>% dplyr::select(siteid,age,variablename,value) %>% group_by(siteid,age) %>% 
-  dplyr::mutate(pollcount = sum(value, na.rm=TRUE)) %>%
-  ungroup() %>%
-  group_by(siteid,age,variablename) %>%
-  mutate(sum_eco = sum(value,na.rm=TRUE)) %>%
-  ungroup() %>%
-  group_by(variablename) %>%
-  mutate(prop = sum_eco / pollcount) %>%
-  dplyr::select(siteid, age, variablename, prop) %>% 
-  mutate(prop = as.numeric(prop)) %>%
-  drop_na(age) %>% 
-  distinct()
+##count_site = pollen[pollen$variablename %in% toptaxa$variablename,] %>% dplyr::select(siteid,age,variablename,value) %>% group_by(siteid,age) %>% 
+ # dplyr::mutate(pollcount = sum(value, na.rm=TRUE)) %>%
+#  ungroup() %>%
+#  group_by(siteid,age,variablename) %>%
+#  mutate(sum_eco = sum(value,na.rm=TRUE)) %>%
+#  ungroup() %>%
+#  group_by(variablename) %>%
+#  mutate(prop = sum_eco / pollcount) %>%
+#  dplyr::select(siteid, age, variablename, prop) %>% 
+#  mutate(prop = as.numeric(prop)) %>%
+#  drop_na(age) %>% 
+#  distinct()
 
-widetable2 <- count_site %>%
-  dplyr::select(age, variablename, prop,siteid) %>% 
-  mutate(prop = as.numeric(prop))
+#widetable2 <- count_site %>%
+#  dplyr::select(age, variablename, prop,siteid) %>% 
+#  mutate(prop = as.numeric(prop))
 
-counts2 <- tidyr::pivot_wider(widetable2,
-                             id_cols = c(age,siteid),
-                             names_from = variablename,
-                             values_from = prop,
-                             values_fill = 0)
-
-
-
-
-counts27348 = counts2 %>% dplyr::filter(siteid==27348) %>% dplyr::select(!siteid)
-counts27509 = counts2 %>% dplyr::filter(siteid==27509) %>% dplyr::select(!siteid)
-counts28222 = counts2 %>% dplyr::filter(siteid==28222) %>% dplyr::select(!siteid)
-counts27849 = counts2 %>% dplyr::filter(siteid==27849) %>% dplyr::select(!siteid)
+#counts2 <- tidyr::pivot_wider(widetable2,
+#                             id_cols = c(age,siteid),
+#                             names_from = variablename,
+#                             values_from = prop,
+#                             values_fill = 0)
 
 
 
 
-Stratiplot(x=counts27348[-1]*100,y=counts27348$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="27348",type="h")
-Stratiplot(x=counts27509[-1]*100,y=counts27509$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="27509",type="h")
-Stratiplot(x=counts28222[-1]*100,y=counts28222$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="28222",type="h")
-Stratiplot(x=counts27849[-1]*100,y=counts27849$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="27849",type="h")
+#counts27348 = counts2 %>% dplyr::filter(siteid==27348) %>% dplyr::select(!siteid)
+##counts27509 = counts2 %>% dplyr::filter(siteid==27509) %>% dplyr::select(!siteid)
+#counts28222 = counts2 %>% dplyr::filter(siteid==28222) %>% dplyr::select(!siteid)
+#counts27849 = counts2 %>% dplyr::filter(siteid==27849) %>% dplyr::select(!siteid)
+
+
+
+
+#Stratiplot(x=counts27348[-1]*100,y=counts27348$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="27348",type="h")
+#Stratiplot(x=counts27509[-1]*100,y=counts27509$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="27509",type="h")
+#Stratiplot(x=counts28222[-1]*100,y=counts28222$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="28222",type="h")
+#Stratiplot(x=counts27849[-1]*100,y=counts27849$age,ylab="Years BP", xlab="Pollen (%)",rev=TRUE,sort="wa",rev.sort=TRUE,main="27849",type="h")
 
 ```
 
