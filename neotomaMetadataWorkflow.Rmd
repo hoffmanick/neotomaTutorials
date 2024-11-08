@@ -82,10 +82,7 @@ library(jsonlite)
 library(httr)
 library(ggplot2)
 library(analogue)
-library(geodata)
-library(elevatr)
-library(raster)
-library(tmap)
+
 
 ```
 
@@ -314,7 +311,7 @@ leaflet() %>%
 
 Look and despair ! With the exception of site "Lake Tanganyika [SD cores]" (our only point site), there are mismatches between general site location and core location. 
 
-This raises the question, at what spatial resolution, and for what sorts of analyses, do these mismatches start to matter? See this [demonstration](https://.....) for one answer.
+This raises the question, at what spatial resolution, and for what sorts of analyses, do these mismatches start to matter? See this [demonstration](coordinatesMatter.html) for one answer.
 
 # Further exploration of Neotoma metadata
 

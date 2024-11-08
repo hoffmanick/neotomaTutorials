@@ -199,13 +199,17 @@ filteredColl_sf = collunit_df %>% dplyr::filter(collectionunitid %in% siteMetada
 
 pal <- colorFactor(palette = "Set1", domain = siteMetadata_df$siteid)
 
+
+polySites$arranger =  cbind( 1/as.numeric(st_area(polySites)))
+polySites = polySites %>% arrange(arranger)
+
 leaflet() %>%
   addTiles() %>%
   addPolygons(data = polySites, 
               color = "red", 
               weight = 2, 
               fillColor = ~pal(siteid), 
-              fillOpacity = 0.45, 
+              fillOpacity = 0.55, 
               popup = ~siteid)  %>%
   addCircleMarkers(data = pointSites, 
                    radius = 5, 
@@ -355,13 +359,13 @@ difference = coll_pred - site_pred
 
 min_val <- minValue(difference)
 max_val <- maxValue(difference)
-breaks <- seq(min_val, max_val, length.out = 100)
+breaks <- seq((0-max(max_val,(0-min_val))),max(max_val,(0-min_val)),length.out=100)
 
 color_palette <- colorRampPalette(c("blue", "white", "red"))(99)
 
 plot(coll_pred)
 plot(site_pred)
-plot(difference, col=color_palette)
+plot(difference, col=color_palette,breaks=breaks)
 
 
 ## all equal 0
