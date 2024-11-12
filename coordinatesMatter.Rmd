@@ -233,7 +233,7 @@ leaflet() %>%
 # Sedge abundance
 
 
-```{r exercise}
+```{r exercise, message=FALSE,results='hide'}
 
 samps = samples(get_downloads(get_datasets(tanganyikaSites)))
 

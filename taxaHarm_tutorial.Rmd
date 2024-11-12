@@ -66,6 +66,14 @@ table tr th :last-child, table tr td :last-child {
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+# Introduction
+
+When performing large-scale syntheses of pollen data, it is usually necessary to harmonize taxonomic systems across datasets. This may be because one dataset uses an older synonym for a taxon (e.g., gramineae rather than poaceae), or a dataset identifies to a higher degree of resolution than you're interested in (e.g. digitaria rather than poaceae). The African Pollen Database curates a valuable table for assisting in taxa harmonization across African pollen. This guide will walk you through use of the APD taxa harmonization table with a simple example.
+
+## Packages and Data
+
+We'll first load up some packages we're going to be using, and then grab some pollen data to play with from Neotoma.
+
 ```{r packages,message=FALSE,warning=FALSE}
 
 library(neotoma2)
@@ -76,24 +84,41 @@ library(httr)
 library(jsonlite)
 library(stringr)
 library(ggplot2)
+library(leaflet)
+library(tmap)
+library(rosm)
+library(osmdata)
+library(DT)
 ```
 
+We make a bounding box that encompasses all of Africa. Then we grab all Neotoma sites from that box, and filter for just those datasetids that concern pollen. Then we use the Neotoma2 package to download all of those pollen data.
+
 ```{r get-data}
+lats = c(38, 38, -36, -36)
+lons = c(-18, 52, 52, -18) # Reordered for a rectangle
 
-lats = c(-16,-16,-36,-36) %>% as.data.frame()
-lons = c(10,41,10,41) %>% as.data.frame()
+# Create a data frame with coordinates
+coordinates = data.frame(lat = lats, lon = lons)
 
-coordinates = lats %>% cbind(lons) 
-names(coordinates) = c("lat","lon")
+# Convert to sf object and create a polygon
+coordinates_sf = coordinates %>%
+  st_as_sf(coords = c("lon", "lat"), crs = 4326) %>%
+  summarise(geometry = st_combine(geometry)) %>%
+  st_cast("POLYGON")
 
-coordinates = coordinates %>% st_as_sf(coords=c("lon","lat"), crs="WGS84") %>% mutate(dummyID = 1) %>% group_by(dummyID) %>% dplyr::summarize() %>% st_cast("POLYGON")
+# Plot to check
+tm_shape(osm.raster(coordinates_sf)) +
+  tm_rgb() +
+  tm_shape(coordinates_sf) +
+  tm_polygons(alpha = 0.5)
 
-coord_json = sf_geojson(coordinates)
+
+coord_json = sf_geojson(coordinates_sf)
 
 
 altmin = 000 #m
 
-sites = content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?altmin=",altmin,"&loc=",coord_json,"&limit=999&offset=0")))$data
+sites = content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?altmin=",altmin,"&loc=",coord_json,"&limit=9999&offset=0")))$data
 
 
 idx = 0
@@ -145,47 +170,205 @@ sites_df = as.data.frame(sites_mat)
 
 names(sites_df) = c("siteid","sitename","sitedescription","geography","altitude","handle","collectionunit","collectionunitid","collectionunittype","datasetid","datasettype")
 
-siteids = sites_df %>% distinct(siteid) %>% dplyr::mutate()
+
+datasetids = sites_df %>% dplyr::filter(datasettype == "pollen") %>% dplyr::distinct(datasetid)
+
+datasets_neo = get_datasets(as.numeric(datasetids$datasetid),all_data=TRUE)
+
+data = samples(get_downloads(datasets_neo,all_data=TRUE))
+
+```
+
+Now that we have our data, let's grab our harmonization table. That comes from the [African Pollen Database](https://africanpollendatabase.ipsl.fr/)'s website, and you can download it directly through the "download table [.csv]" button on [this page](https://africanpollendatabase.ipsl.fr/#/taxon-dict). 
+
+We'll manipulate the data little bit to make sums of pollen counts by site and age. Then we'll divide every pollen count by the appropriate sum in order to get proportion data. 
 
 
-sites_neo = get_sites(as.numeric(siteids$siteid),all_data=TRUE)
-
-data = samples(get_downloads(get_datasets(sites_neo,all_data=TRUE),all_data=TRUE))
-
-pollendata = data %>% dplyr::filter(datasettype=="pollen")
-
-pollendata %>% group_by(variablename) %>% count() %>% arrange(desc(n))
-  
+```{r part-two}
 
 apd_harmTable = read.csv("APD_dictionnary_export.csv",row.names=NULL,sep=";")
 
-pollendata = pollendata %>% left_join(apd_harmTable, by=join_by(variablename == Taxon..original.name.))
 
-pollendata = pollendata %>% mutate(Taxon..revised.nomenclature. = case_when(
-  str_detect(variablename,regex('poaceae', ignore_case = T)) ~ "Poaceae undiff.", 
-  TRUE ~ Taxon..revised.nomenclature.)) %>% mutate(Family.name = case_when(
-  str_detect(variablename,regex('poaceae', ignore_case = T)) ~ "POACEAE", 
-  TRUE ~ Family.name))
+poltots = data %>% left_join(apd_harmTable, by=join_by(variablename == Taxon..original.name.)) %>% group_by(siteid,age) %>% summarize(poltot = sum(value))
+
+pollendata = data  %>% left_join(poltots) %>% group_by(siteid,age,variablename) %>% summarize(prop = value/poltot, lat=lat) %>% left_join(apd_harmTable, by=join_by(variablename == Taxon..original.name.))
+
+#podocarp_noHarm = pollendata %>% dplyr::filter(variablename == "Podocarpus") %>% dplyr::filter(!is.na(prop)) %>%
+#  mutate(abundance = case_when(prop > 0.7 ~ "high", 
+#                               prop <=0.7 & prop > 0.4 ~ "moderate high",
+#                               prop <=0.4 & prop > 0.1 ~ "moderate",
+#                               prop <= 0.1 ~ "low")) %>% 
+#  dplyr::filter(prop > 0.35)
+
+```
+
+# Olea capensis latitudinal shifts
+
+Let's say we're interested in latitudinal shifts in Olea capensis over time. We can filter our data for just those instances where Olea capensis is greater than 5% of the pollen assemblage with the code below. We filter for when the variablename is "Olea capensis" and when its proportion is greater than 0.05. When I do that, in November 2024, I get 127 instances of greater than 5% Olea capensis.
+
+When we plot the latitude of those occurrences over time, we get a curve that shows most reliably an increase in latitude for Olea capensis, over the past 20,000 years. [connection to deglaciation?? i'm used to saying 'things move north when it warms up - but idk if that really applies in these latitudes']
 
 
-pollen_alt = pollendata %>% mutate(elevbins = round(elev,-2)) %>% drop_na(age) %>% mutate(agebins = round(age/5000)*5000)
+``` {r partthefifth}
+oleacap_noHarm = pollendata %>% dplyr::filter(variablename == "Olea capensis") %>% dplyr::filter(!is.na(prop)) %>%
+  dplyr::filter(prop > 0.05)
 
-pollen_alt = pollen_alt %>% group_by(elevbins,Family.name,agebins) %>% summarize(polcount = sum(value)) 
+#agelat_points = pollendata %>% group_by(age,lat) %>% summarize() %>% dplyr::filter(age <15000)
 
-pol_total = pollen_alt %>% ungroup() %>% group_by(elevbins,agebins) %>% summarize(total = sum(polcount))
+#ggplot(podocarp_noHarm) +
+#  geom_point(mapping=aes(x=age,y=lat),alpha=0.5) +
+#  geom_smooth(mapping=aes(x=age,y=lat),alpha=0.5)
 
-pollen_alt = pollen_alt %>% left_join(pol_total) %>% mutate(prop = polcount/total*100) %>% drop_na()
+ggplot() +
+    geom_smooth(mapping=aes(x=age,y=lat),alpha=0.5,data=oleacap_noHarm,color="pink",fill="pink",) +
+  geom_point(mapping=aes(x=age,y=lat),alpha=0.8,color='red',data=oleacap_noHarm) +
+  scale_x_reverse() +
+  theme_bw()
 
-wide_alt = pollen_alt %>% pivot_wider(id_cols=elevbins,names_from=Family.name,values_from=prop)
 
-pollen_alt_young = pollen_alt %>% dplyr::filter(agebins < 29000) 
-toptaxa = pollen_alt_young %>% group_by(Family.name) %>% dplyr::summarize(propsum = sum(prop)) %>% arrange(desc(propsum)) %>% head(n=10)
-
-pollen_alt_young = pollen_alt_young %>% dplyr::filter(Family.name %in% toptaxa$Family.name)
-
-ggplot(pollen_alt_young) +
-  geom_line(mapping=aes(x=elevbins,y=log(prop),group=agebins,color=as.factor(agebins)),lwd=2) + 
-  facet_wrap(~Family.name) 
 
 
 ```
+
+The story we got from those Olea capensis data seems reliable. But we're leaving data on the table if we're not thinking about taxon harmonization. Consider the table below that shows all number of occurrences for all the different taxa with the word "Olea" in them from our dataset, alongside the recommended nomenclature for that taxon from the APD taxon harmonization table. "Olea capensis" is one of the most commonly used categories - and the most common to describe the Olea capensis pollen morphotype - but there are other categories which we may want include in our analysis. In particular, the Neotoma data taxon is often referred to as "Olea capensis-type" to communicate that the identification is of a pollen morphology that is associated with Olea capensis but may not uniquely identify Olea capensis. The APD considers Olea capensis and Olea capensis-type to be equivalent taxa. Let us therefore include this second taxon, Olea capensis-type, in our analysis and see if it makes a difference.
+
+We do this below by filtering for the revised nomenclature "Olea capensis-type" where its proportion is greater than 0.05. As of November 2024, this search returns 324 occurrences - almost 200 more than our original search !
+
+When we plot these extended data over our old data, we see that it doesn't overturn our first takeaway. It still appears that Olea capensis moved north over the last 20,000 years. But it does refine our conclusion: the movement north no longer seems as stark as before.
+
+```{r part-three}
+
+#podotable = pollendata %>% dplyr::filter(str_detect(variablename,"odoc")) %>% group_by(variablename) %>% count() %>% left_join(apd_harmTable, by=join_by(variablename == Taxon..original.name.)) %>% arrange(desc(n))
+
+oleatable = pollendata %>% dplyr::filter(str_detect(variablename,"Olea")) %>% group_by(variablename) %>% count() %>% left_join(apd_harmTable, by=join_by(variablename == Taxon..original.name.)) %>% arrange(desc(n))
+ 
+datatable(oleatable[c(1,3,2)],rownames=FALSE)
+
+#datatable(podotable,rownames=FALSE)
+
+
+#podocarp_Harm = pollendata %>% dplyr::filter(Taxon..revised.nomenclature. == "Podocarpus-type") %>% dplyr::filter(!is.na(prop)) %>%
+#  mutate(abundance = case_when(prop > 0.7 ~ "high", 
+#                               prop <=0.7 & prop > 0.4 ~ "moderate high",
+#                               prop <=0.4 & prop > 0.1 ~ "moderate",
+#                               prop <= 0.1 ~ "low")) %>% 
+#  dplyr::filter(prop > 0.35)
+
+
+oleacap_Harm = pollendata %>% dplyr::filter(Taxon..revised.nomenclature. == "Olea capensis-type") %>% dplyr::filter(!is.na(prop)) %>%
+  mutate(abundance = case_when(prop > 0.7 ~ "high", 
+                               prop <=0.7 & prop > 0.4 ~ "moderate high",
+                               prop <=0.4 & prop > 0.1 ~ "moderate",
+                               prop <= 0.1 ~ "low")) %>% 
+  dplyr::filter(prop > 0.05)
+
+
+#ggplot(podocarp_Harm) +
+#  geom_point(mapping=aes(x=age,y=lat),alpha=0.5) +
+#  geom_smooth(mapping=aes(x=age,y=lat),alpha=0.5)
+
+
+
+ggplot() +
+    geom_smooth(mapping=aes(x=age,y=lat),alpha=0.5,data=oleacap_noHarm,color="pink",fill="pink") +
+    geom_smooth(mapping=aes(x=age,y=lat),alpha=0.5,data=oleacap_Harm, color="lightblue",fill="lightblue") +
+    geom_point(mapping=aes(x=age,y=lat),alpha=0.8,color='blue',data=oleacap_Harm) +
+    geom_point(mapping=aes(x=age,y=lat),alpha=0.8,color='red',data=oleacap_noHarm) +
+  scale_x_reverse(limits=c(200000,0)) +
+  theme_bw()
+
+
+
+```
+
+# Pollen Analyst Comparison 
+
+Lastly, as a demonstration of why taxon harmonization matters, we'll compare the taxonomic systems of pollen analysts working near each other.
+
+First we'll grab the entire sampleanalysts table from Neotoma and filter for those pollen analysts who counted pollen from Africa.
+
+
+```{r analysts}
+
+
+text="sampleanalysts"
+analysts = content(GET(paste0('https://api.neotomadb.org/v2.0/data/dbtables/',text,'?count=false&limit=999999&offset=0')))$data
+
+analyst_mat = matrix(nrow = length(analysts),ncol=6)
+for (i in seq(length(analysts))) {
+  for (j in seq(6)) {
+    if (!is.null(analysts[[i]][[j]])) {
+      analyst_mat[i,j] = analysts[[i]][[j]]
+    }
+  }
+}
+
+analyst_df = as.data.frame(analyst_mat)
+
+names(analyst_df) = c("analystid","sampleid","contactid","analystorder","recdatecreated","recdatemodified")
+
+
+distinct_samples = data %>% distinct(sampleid)
+
+filtered_an = analyst_df %>% dplyr::filter(sampleid %in% distinct_samples$sampleid)
+
+```
+
+Next, we'll map where these analysts worked, so that we can compare some who work near each other.
+
+``` {r nextwel}
+contactcounts = filtered_an %>% group_by(contactid) %>% count() %>% arrange(desc(n))
+
+merger = contactcounts %>% left_join(filtered_an) %>% left_join(data) %>% group_by(siteid) %>% summarize(siteid=siteid, lat=lat,long=long,contactid=contactid) %>% distinct() %>% st_as_sf(coords=c("long","lat"), crs="WGS84")
+
+
+pal <- colorFactor(palette = "Set1", domain = merger$contactid)
+
+
+leaflet() %>%
+  addTiles() %>%
+  addCircleMarkers(data = merger, 
+                   radius = 5, 
+                   color = ~pal(contactid), 
+                   fillColor = ~pal(contactid), 
+                   fillOpacity = 0.7, 
+                   stroke = FALSE, 
+                   popup = ~contactid)
+
+```
+
+Lastly, we'll do a few comparisons of people who worked near each other. Notice how the most abundant taxa for one analyst may be entirely missing for the other. This may be because they simply are naming the same plant taxa differently. 
+
+
+``` {r lastl}
+
+picks = merger %>% dplyr::filter(contactid %in% c("1022","15804"))
+
+people = content(GET("https://api.neotomadb.org/v1.5/data/contacts/1022,15804"))$data
+
+comparison = data %>% dplyr::filter(siteid %in% picks$siteid) %>% left_join(picks) %>% group_by(contactid,variablename) %>% count() %>% pivot_wider(names_from = contactid,values_from=n)
+
+datatable(comparison,rownames=FALSE)
+
+
+picks2 = merger %>% dplyr::filter(contactid %in% c("16030","16095"))
+
+people2 = content(GET("https://api.neotomadb.org/v1.5/data/contacts/16030,16095"))$data
+
+comparison2 = data %>% dplyr::filter(siteid %in% picks2$siteid) %>% left_join(picks2) %>% group_by(contactid,variablename) %>% count() %>% pivot_wider(names_from = contactid,values_from=n)
+
+datatable(comparison2,rownames=FALSE)
+
+
+
+
+picks3 = merger %>% dplyr::filter(contactid %in% c("17668","262"))
+
+people3 = content(GET("https://api.neotomadb.org/v1.5/data/contacts/17668,262"))$data
+
+comparison3 = data %>% dplyr::filter(siteid %in% picks3$siteid) %>% left_join(picks3) %>% group_by(contactid,variablename) %>% count() %>% pivot_wider(names_from = contactid,values_from=n)
+
+datatable(comparison3,rownames=FALSE)
+
+```
+
