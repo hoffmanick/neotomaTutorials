@@ -239,7 +239,7 @@ leaflet() %>%
 ```
 
 
-Behold: three of our four sites are in fact polygons, not points ! The site object in Neotoma may only bound the locality in which an investigation has occurred in the most general terms. 
+Aha: three of our four sites are in fact polygons, not points ! The site object in Neotoma may only bound the locality in which an investigation has occurred in the most general terms. 
 
 So we've learned that the site isn't the right level at which to be careful about pollen core location. Where, then, do we find the information about core location?? It turns out we need to look to the collectionunits table, accessible through an API. 
 
@@ -309,7 +309,7 @@ leaflet() %>%
 ```
 
 
-Look and despair ! With the exception of site "Lake Tanganyika [SD cores]" (our only point site), there are mismatches between general site location and core location. 
+Well ! With the exception of site "Lake Tanganyika [SD cores]" (our only point site), there are mismatches between general site location and core location. 
 
 This raises the question, at what spatial resolution, and for what sorts of analyses, do these mismatches start to matter? See this [demonstration](coordinatesMatter.html) for one answer.
 
