@@ -93,7 +93,7 @@ library(DT)
 
 We make a bounding box that encompasses all of Africa. Then we grab all Neotoma sites from that box, and filter for just those datasetids that concern pollen. Then we use the Neotoma2 package to download all of those pollen data.
 
-```{r get-data}
+```{r get-data, warning = FALSE, message = FALSE}
 lats = c(38, 38, -36, -36)
 lons = c(-18, 52, 52, -18) # Reordered for a rectangle
 
@@ -184,7 +184,7 @@ Now that we have our data, let's grab our harmonization table. That comes from t
 We'll manipulate the data little bit to make sums of pollen counts by site and age. Then we'll divide every pollen count by the appropriate sum in order to get proportion data. 
 
 
-```{r part-two}
+```{r part-two, warning = FALSE, message = FALSE}
 
 apd_harmTable = read.csv("APD_dictionnary_export.csv",row.names=NULL,sep=";")
 
@@ -209,7 +209,7 @@ Let's say we're interested in latitudinal shifts in Olea capensis over time. We 
 When we plot the latitude of those occurrences over time, we get a curve that shows most reliably an increase in latitude for Olea capensis, over the past 20,000 years. [connection to deglaciation?? i'm used to saying 'things move north when it warms up - but idk if that really applies in these latitudes']
 
 
-``` {r partthefifth}
+``` {r partthefifth, warning = FALSE, message = FALSE}
 oleacap_noHarm = pollendata %>% dplyr::filter(variablename == "Olea capensis") %>% dplyr::filter(!is.na(prop)) %>%
   dplyr::filter(prop > 0.05)
 
@@ -236,7 +236,7 @@ We do this below by filtering for the revised nomenclature "Olea capensis-type" 
 
 When we plot these extended data over our old data, we see that it doesn't overturn our first takeaway. It still appears that Olea capensis moved north over the last 20,000 years. But it does refine our conclusion: the movement north no longer seems as stark as before.
 
-```{r part-three}
+```{r part-three, warning = FALSE, message = FALSE}
 
 #podotable = pollendata %>% dplyr::filter(str_detect(variablename,"odoc")) %>% group_by(variablename) %>% count() %>% left_join(apd_harmTable, by=join_by(variablename == Taxon..original.name.)) %>% arrange(desc(n))
 
@@ -288,7 +288,7 @@ Lastly, as a demonstration of why taxon harmonization matters, we'll compare the
 First we'll grab the entire sampleanalysts table from Neotoma and filter for those pollen analysts who counted pollen from Africa.
 
 
-```{r analysts}
+```{r analysts, warning = FALSE, message = FALSE}
 
 
 text="sampleanalysts"
@@ -316,7 +316,7 @@ filtered_an = analyst_df %>% dplyr::filter(sampleid %in% distinct_samples$sample
 
 Next, we'll map where these analysts worked, so that we can compare some who work near each other.
 
-``` {r nextwel}
+``` {r nextwel, warning = FALSE, message = FALSE}
 contactcounts = filtered_an %>% group_by(contactid) %>% count() %>% arrange(desc(n))
 
 merger = contactcounts %>% left_join(filtered_an) %>% left_join(data) %>% group_by(siteid) %>% summarize(siteid=siteid, lat=lat,long=long,contactid=contactid) %>% distinct() %>% st_as_sf(coords=c("long","lat"), crs="WGS84")
@@ -340,7 +340,7 @@ leaflet() %>%
 Lastly, we'll do a few comparisons of people who worked near each other. Notice how the most abundant taxa for one analyst may be entirely missing for the other. This may be because they simply are naming the same plant taxa differently. 
 
 
-``` {r lastl}
+``` {r lastl, warning = FALSE, message = FALSE}
 
 picks = merger %>% dplyr::filter(contactid %in% c("1022","15804"))
 
@@ -371,4 +371,4 @@ comparison3 = data %>% dplyr::filter(siteid %in% picks3$siteid) %>% left_join(pi
 datatable(comparison3,rownames=FALSE)
 
 ```
-
+<div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
