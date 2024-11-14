@@ -68,7 +68,11 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Introduction
 
-Through its curation of much heterogeneous paleodata and metadata, the Neotoma Paleoecology Database empowers users to generate new paleobiological insights. The extent of the metadata that Neotoma curates may not be obvious to its users, because it is not all exposed in the Neotoma Explorer app, or even in the functions provided by the neotoma2 R package. This tutorial will walk you through how to search for metadata that you may like to take advantage of in your work, with a focus on site and core location.
+The Neotoma Paleoecology Database empowers users to generate new paleobiological insights through its curation of thousands of paleo datasets and associated metadata. The extent of the metadata that Neotoma curates may not be obvious to its users, because it is not all exposed in the Neotoma Explorer app, or even in the functions provided by the ```neotoma2``` R package. This tutorial will demonstrate how to explore more of this extensive metadata, with a focus on site and core location.
+
+# Packages
+
+Before we do any data wrangling, we'll load up some packages that we'll need.
 
 ```{r packages, warning=FALSE, message=FALSE}
 
@@ -80,17 +84,17 @@ library(sf)
 library(leaflet)
 library(jsonlite)
 library(httr)
-library(ggplot2)
-library(analogue)
+##library(ggplot2)
+##library(analogue)
 
 
 ```
 
 # Getting Data
 
-First we want to grab some sites that we care about. This tutorial assumes you already know how to get data through the neotoma2 R package. If you need a refresher, please see this [tutorial](https://open.neotomadb.org/EPD_binder/simple_workflow.html).  
+Now that we have our packages loaded, we can grab some sites that we care about. This tutorial assumes you already know how to get data through the ```neotoma2``` R package. If you need a refresher, please see this [tutorial](https://open.neotomadb.org/EPD_binder/simple_workflow.html).  
 
-We'll look for sites from Lake Tanganyika, to start with. We grab the sites, and then we use the neotoma2::plotLeaflet() function to see where those sites (nominally) are.
+We'll look for sites from Lake Tanganyika. We grab the sites, and then we use the ```neotoma2::plotLeaflet()``` function to see where those sites are.
 
 ```{r get-data, echo=TRUE, warning=FALSE}
 
@@ -100,18 +104,16 @@ tanganyikaSites = get_sites(sitename = "%Tanganyika%")
 plotLeaflet(tanganyikaSites)
 ```
 
-We found four sites, and they seem to be located along the middle of the lake. But we need to be careful here for two related reasons:
-
-1. the plotLeaflet() function will plot all sites as points, even if they are really stored in Neotoma as polygons, and 
-2. the coordinates of site objects in Neotoma are not necessarily the precise locations where cores have been taken. Neotoma stores core location information in a separate object, the collection unit. 
-
-Let's tackle these two complications one by one.
+We found four sites, and they seem to be located along the middle of the lake. But we need to be careful here. The ```plotLeaflet()``` function will plot all sites in Neotoma as points, even if the coordinates of the site geometries are really stored in Neotoma as polygons. In the Neotoma data model, sites refer to the general localities from which paleodata are extracted, but not necessarily the precise locations at which cores are taken. In the case of a small lake, this might not make a difference to your analysis. But for a big lake like Lake Tanganyika, the difference between the centroid of a polygon and the actual core locations may be meaningfully different. Fortunately, Neotoma often stores core location information in a separate object, the collection unit. 
 
 # Points and polygons
 
-Like we said, the plotLeaflet() function is a wonderful and convenient tool for understanding general site location, but it can sometimes mislead us into thinking that a site is described with more precision in Neotoma than it actually is. This isn't always a problem - sometimes all we need is general site location. But if we're trying to be careful about site location - if, for instance, we're doing an analysis that is sensitive to small-scale spatial variation - then we're going to want to grab more authoritative Neotoma metadata about site location. We can do this through one of [Neotoma's API calls](https://api.neotomadb.org/api-docs/).
 
-In particular, we're going to use an API that requires a Neotoma siteid, or comma-separated string of siteids, as an input, and outputs site and dataset metadata. First we'll format the siteids from the Tanganyika sites we found earlier as a comma-separated string, and then we'll paste them into the particular API call we'd like to make. We send a GET request and unpack the response with the content() function, focusing just on what's under the <i>data</i> header. And we can look at the beginning of our output (which we call siteMetadata).
+Let's check whether the Lake Tanganyika site objects are really points, or if they are in fact polygons.   
+
+The ```plotLeaflet()``` function is a great tool for understanding general site location, but it can sometimes mislead us into thinking that a site is described with more precision in Neotoma than it actually is. This isn't always a problem - sometimes all we need is general site location. But if we're trying to be careful about site location - if, for instance, we're doing an analysis that is sensitive to small-scale spatial variation - then we're going to want to grab more authoritative Neotoma metadata about site location. We can do this through one of [Neotoma's API calls](https://api.neotomadb.org/api-docs/).
+
+In particular, we're going to use an API that requires a Neotoma siteid, or comma-separated string of siteids, as an input, and outputs site and dataset metadata. First we'll format the siteids from the Tanganyika sites we found earlier as a comma-separated string, and then we'll paste them into the particular API call we'd like to make. We send a ```GET()``` request and unpack the response with the ```content()``` function, focusing just on what's under the <i>data</i> header. And we can look at the beginning of our output (which we call siteMetadata).
 
 ```{r api-sites, echo=TRUE, warning=FALSE}
 
@@ -129,7 +131,7 @@ siteMetadata = content(response)$data
 siteMetadata[[1]]$site[1:5]
 ```
 
-siteMetadata is a list of ... well ... site metadata. Even just looking at the first few entries of this list, we can see that at least one site that plotLeaflet() rendered as a point is in fact a polygon. But the list structure is hard to read. Let's reformat this list as a datatable, and for now, let's only keep site metadata, not dataset metadata. Because we're only keeping site metadata, some of our entries will be duplicated - we can keep just the distinct entries.
+siteMetadata is a list of ... well ... site metadata. Even just looking at the first few entries of this list, we can see that at least one site that ```plotLeaflet()``` rendered as a point is in fact a polygon. But the list structure is hard to read. Let's reformat this list as a datatable, and for now, let's only keep site metadata, not dataset metadata. Because we're only keeping site metadata, some of our entries will be duplicated - we can keep just the distinct entries.
 
 ```{r metadata-to-table, warning=FALSE}
 
@@ -207,7 +209,7 @@ datatable(siteMetadata_df[1:10],rownames=FALSE)
 You'll notice that even after removing duplicate entries, we have eleven rows, but only four sites. This is because the metadata under the site header also includes collectionunit information - more on the collecitonunits soon - and each of these sites is associated with between 1 and 4 collection units.
 
 
-Before talking about the collectionunits in more detail, let's map the new site location metadata, to check whether in fact they are points or polygons. In order to do this, we'll use the geojson_sf() function to convert geography column of our siteMetadata_df dataframe into an sf (simple features) object, and rebind that sf object to the rest of the dataframe. Then we'll split apart those sites that have point geometry (pointSites) from those which have polygon geometry (polySites), keeping only those rows with distinct siteids, and plot both objects in a leaflet plot.
+Before talking about the collectionunits in more detail, let's map the new site location metadata, to check whether in fact they are points or polygons. In order to do this, we'll use the ```geojson_sf()``` function to convert geography column of our siteMetadata_df dataframe into an sf (simple features) object, and rebind that sf object to the rest of the dataframe. Then we'll split apart those sites that have point geometry (pointSites) from those which have polygon geometry (polySites), keeping only those rows with distinct siteids, and plot both objects in a leaflet plot.
 
 ```{r geo-revisited, warning=FALSE}
 
@@ -245,7 +247,7 @@ So we've learned that the site isn't the right level at which to be careful abou
 
 # The collectionunits table
 
-The collectionunits table is the place to go to learn about core-specific metadata, including precise core location. In order to access the collectionunits associated with our Tanganyika sites, we first need to download the entire collection-units table. Then we'll filter for the collection units we care about. Below, we grab the collectionunits table as a list, reformat it into a dataframe, and then an sf object, and plot it on top of our map.
+The collectionunits table is the place to go to learn about core-specific metadata, including precise core location. In order to access the collectionunits associated with our Tanganyika sites, we first need to download the entire collectionunits table. Then we'll filter for the collection units we care about. Below, we grab the collectionunits table as a list, reformat it into a dataframe, and then an sf object, and plot it on top of our map.
 
 
 ```{r collectionunits, warning=FALSE}
@@ -281,22 +283,26 @@ datatable(st_drop_geometry(filteredColl_sf)[c(1:3,5:10,15)],rownames=FALSE)
 
 pal <- colorFactor(palette = "Set1", domain = siteMetadata_df$siteid)
 
+
+polySites$arranger =  cbind( 1/as.numeric(st_area(polySites)))
+polySites = polySites %>% arrange(arranger)
+
 leaflet() %>%
   addTiles() %>%
   addPolygons(data = polySites, 
-              color = "red", 
-              weight = 2, 
+              color = "black", 
+              weight = 1, 
               fillColor = ~pal(siteid), 
-              fillOpacity = 0.45, 
-              popup = ~siteid)  %>%
+              fillOpacity = 0.55, 
+              popup = ~sitename)  %>%
   addCircleMarkers(data = pointSites, 
-                   radius = 5, 
+                   radius = 8, 
                    color = "black", 
                    fillColor = ~pal(siteid), 
                    fillOpacity = 0.7, 
                    stroke = TRUE, 
                    weight = 1,
-                   popup = ~siteid)   %>% 
+                   popup = ~sitename)   %>% 
   addCircleMarkers(data = filteredColl_sf, 
                    radius = 3, 
                    color = "white", 
@@ -304,12 +310,12 @@ leaflet() %>%
                    fillOpacity = 1, 
                    stroke = TRUE,
                    weight = 1,
-                   popup = ~collectionunitid)
+                   popup = ~collunitname)
 
 ```
 
 
-Well ! With the exception of site "Lake Tanganyika [SD cores]" (our only point site), there are mismatches between general site location and core location. 
+In the above plot, sites and associated cores are filled with the same color. Sites have black outlines, and cores have white outlines, and if you click on a site or core its name should pop up. And what do you know ! With the exception of site "Lake Tanganyika [SD cores]" (our only point site), there are mismatches between general site location and core location. 
 
 This raises the question, at what spatial resolution, and for what sorts of analyses, do these mismatches start to matter? See this [demonstration](coordinatesMatter.html) for one answer.
 
