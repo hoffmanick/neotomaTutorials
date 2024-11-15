@@ -193,12 +193,6 @@ poltots = data %>% left_join(apd_harmTable, by=join_by(variablename == Taxon..or
 
 pollendata = data  %>% left_join(poltots) %>% group_by(siteid,age,variablename) %>% summarize(prop = value/poltot, lat=lat) %>% left_join(apd_harmTable, by=join_by(variablename == Taxon..original.name.))
 
-#podocarp_noHarm = pollendata %>% dplyr::filter(variablename == "Podocarpus") %>% dplyr::filter(!is.na(prop)) %>%
-#  mutate(abundance = case_when(prop > 0.7 ~ "high", 
-#                               prop <=0.7 & prop > 0.4 ~ "moderate high",
-#                               prop <=0.4 & prop > 0.1 ~ "moderate",
-#                               prop <= 0.1 ~ "low")) %>% 
-#  dplyr::filter(prop > 0.35)
 
 ```
 
@@ -213,11 +207,6 @@ When we plot the latitude of those occurrences over time, we get a curve that sh
 oleacap_noHarm = pollendata %>% dplyr::filter(variablename == "Olea capensis") %>% dplyr::filter(!is.na(prop)) %>%
   dplyr::filter(prop > 0.05)
 
-#agelat_points = pollendata %>% group_by(age,lat) %>% summarize() %>% dplyr::filter(age <15000)
-
-#ggplot(podocarp_noHarm) +
-#  geom_point(mapping=aes(x=age,y=lat),alpha=0.5) +
-#  geom_smooth(mapping=aes(x=age,y=lat),alpha=0.5)
 
 ggplot() +
     geom_smooth(mapping=aes(x=age,y=lat),alpha=0.5,data=oleacap_noHarm,color="pink",fill="pink",) +
@@ -238,21 +227,11 @@ When we plot these extended data over our old data, we see that it doesn't overt
 
 ```{r part-three, warning = FALSE, message = FALSE}
 
-#podotable = pollendata %>% dplyr::filter(str_detect(variablename,"odoc")) %>% group_by(variablename) %>% count() %>% left_join(apd_harmTable, by=join_by(variablename == Taxon..original.name.)) %>% arrange(desc(n))
 
 oleatable = pollendata %>% dplyr::filter(str_detect(variablename,"Olea")) %>% group_by(variablename) %>% count() %>% left_join(apd_harmTable, by=join_by(variablename == Taxon..original.name.)) %>% arrange(desc(n))
  
 datatable(oleatable[c(1,3,2)],rownames=FALSE)
 
-#datatable(podotable,rownames=FALSE)
-
-
-#podocarp_Harm = pollendata %>% dplyr::filter(Taxon..revised.nomenclature. == "Podocarpus-type") %>% dplyr::filter(!is.na(prop)) %>%
-#  mutate(abundance = case_when(prop > 0.7 ~ "high", 
-#                               prop <=0.7 & prop > 0.4 ~ "moderate high",
-#                               prop <=0.4 & prop > 0.1 ~ "moderate",
-#                               prop <= 0.1 ~ "low")) %>% 
-#  dplyr::filter(prop > 0.35)
 
 
 oleacap_Harm = pollendata %>% dplyr::filter(Taxon..revised.nomenclature. == "Olea capensis-type") %>% dplyr::filter(!is.na(prop)) %>%
@@ -263,15 +242,9 @@ oleacap_Harm = pollendata %>% dplyr::filter(Taxon..revised.nomenclature. == "Ole
   dplyr::filter(prop > 0.05)
 
 
-#ggplot(podocarp_Harm) +
-#  geom_point(mapping=aes(x=age,y=lat),alpha=0.5) +
-#  geom_smooth(mapping=aes(x=age,y=lat),alpha=0.5)
-
 
 
 ggplot() +
-    geom_smooth(mapping=aes(x=age,y=lat),alpha=0.5,data=oleacap_noHarm,color="pink",fill="pink") +
-    geom_smooth(mapping=aes(x=age,y=lat),alpha=0.5,data=oleacap_Harm, color="lightblue",fill="lightblue") +
     geom_point(mapping=aes(x=age,y=lat),alpha=0.8,color='blue',data=oleacap_Harm) +
     geom_point(mapping=aes(x=age,y=lat),alpha=0.8,color='red',data=oleacap_noHarm) +
   scale_x_reverse(limits=c(200000,0)) +
@@ -369,6 +342,141 @@ people3 = content(GET("https://api.neotomadb.org/v1.5/data/contacts/17668,262"))
 comparison3 = data %>% dplyr::filter(siteid %in% picks3$siteid) %>% left_join(picks3) %>% group_by(contactid,variablename) %>% count() %>% pivot_wider(names_from = contactid,values_from=n)
 
 datatable(comparison3,rownames=FALSE)
+
+```
+
+
+```{r clusterpollenanalyst}
+
+lats = c(-16, -16, 16, 16)
+lons = c(26, 40, 40, 26) # Reordered for a rectangle
+
+# Create a data frame with coordinates
+coordinates = data.frame(lat = lats, lon = lons)
+
+# Convert to sf object and create a polygon
+coordinates_sf = coordinates %>%
+  st_as_sf(coords = c("lon", "lat"), crs = 4326) %>%
+  summarise(geometry = st_combine(geometry)) %>%
+  st_cast("POLYGON")
+
+# Plot to check
+
+
+merger = ungroup(merger)
+merger_east = st_filter(merger,coordinates_sf)
+
+tm_shape(osm.raster(coordinates_sf)) +
+  tm_rgb() +
+  tm_shape(coordinates_sf) +
+  tm_borders(alpha = 0.5) +
+  tm_shape(merger_east) +
+  tm_dots(col="contactid",size=0.5)
+
+wide_data = data %>% dplyr::filter(siteid %in% merger_east$siteid) %>% left_join(merger) %>% group_by(contactid,variablename) %>% count() %>% pivot_wider(id_cols = contactid, names_from = variablename, values_from = n, values_fill = 0) 
+
+wide_data[,-1][wide_data[,-1] !=0 ] = 1
+
+justvals = wide_data[,-1]
+library(factoextra)
+library(mclust)
+library(cluster)
+
+
+
+
+allpeople = content(GET(paste0("https://api.neotomadb.org/v1.5/data/contacts/",paste0(wide_data[[1]],collapse=","))))$data
+
+people_mat = matrix(nrow=length(allpeople),ncol=2)
+
+for (i in seq(length(allpeople))) {
+  if(!is.null(allpeople[[i]]$contactname)) {
+    people_mat[i,1] = allpeople[[i]]$contactname
+  }
+    if(!is.null(allpeople[[i]]$contactid)) {
+    people_mat[i,2] = allpeople[[i]]$contactid
+  }
+}
+
+
+people_df = as.data.frame(people_mat)
+names(people_df) = c("contactname","contactid")
+
+
+wide_data = wide_data %>% left_join(people_df)
+## kmeans
+
+    fviz_nbclust(justvals, kmeans, method = "wss") + geom_vline(xintercept = 3, linetype = 2)
+
+        k = 3
+    kmeans_clustering <- kmeans(justvals, centers = k, nstart = 20)
+  
+## hclust
+    
+      distances = dist(justvals, method = 'euclidean')
+    agglomerative_clustering <- hclust(distances, method = 'average')
+    
+        fviz_dend(agglomerative_clustering, cex = 0.5, k = 3, color_labels_by_k = TRUE, show_labels=TRUE)
+    
+      
+    plot(agglomerative_clustering,labels=wide_data$contactname)
+ 
+## diana
+        
+    # compute divisive hierarchical clustering
+    divisive_clustering <- diana(justvals)
+    # Divise coefficient
+    print(divisive_clustering$dc)
+    
+  #plot using a colors dendrogram to see our clusters with 3 groups
+fviz_dend(divisive_clustering, cex = 0.5, k = 3, color_labels_by_k = TRUE, show_labels=FALSE)
+plot(divisive_clustering,labels=wide_data$contactname)
+##mclust
+
+    # Create a GMM model
+    dataset_mc <- Mclust(justvals)
+    summary(dataset_mc)
+
+library(ggbiplot)
+pca = prcomp(justvals)    
+
+wide_data$pc1 = pca$x[,1]
+wide_data$pc2 = pca$x[,2]
+
+ggplot(wide_data) + 
+  geom_point(mapping=aes(x=pc1,y=pc2)) +
+  geom_text(mapping=aes(x=(pc1+0.5),y=(pc2-0.5),label=contactname)) +
+  labs(x = "PC1 (22.7%)", y = "PC2 (9.8%)") +
+  theme_bw()
+
+
+ggplot(wide_data) + 
+  geom_point(mapping=aes(x=pc1,y=pc2)) +
+  geom_text(mapping=aes(x=(pc1+0.2),y=(pc2-0.2),label=contactname)) +
+  labs(x = "PC1 (22.7%)", y = "PC2 (9.8%)") +
+  scale_x_continuous(limits=c(-1,4)) +
+  scale_y_continuous(limits=c(-3,1)) +
+  theme_bw()
+
+
+
+
+ggplot(wide_data) + 
+  geom_point(mapping=aes(x=pc1,y=pc2)) +
+  geom_text(mapping=aes(x=(pc1+0.1),y=(pc2-0.1),label=contactname)) +
+  labs(x = "PC1 (22.7%)", y = "PC2 (9.8%)") +
+  scale_x_continuous(limits=c(1.6,3.5)) +
+  scale_y_continuous(limits=c(-2,-0.6)) +
+  theme_bw()
+
+#pc1 biggest loadings
+pca$rotation[,1][abs(pca$rotation[,1]) %in% tail(sort(abs(pca$rotation[,1])), 5)] 
+
+#pc2 biggest loadings
+pca$rotation[,2][abs(pca$rotation[,2]) %in% tail(sort(abs(pca$rotation[,2])), 5)] 
+
+#pc3 biggest loadings
+pca$rotation[,3][abs(pca$rotation[,3]) %in% tail(sort(abs(pca$rotation[,3])), 5)] 
 
 ```
 <div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
