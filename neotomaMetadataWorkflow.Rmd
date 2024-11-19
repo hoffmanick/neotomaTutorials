@@ -68,11 +68,22 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Introduction
 
-The Neotoma Paleoecology Database empowers users to generate new paleobiological insights through its curation of thousands of paleo datasets and associated metadata. The extent of the metadata that Neotoma curates may not be obvious to its users, because it is not all exposed in the Neotoma Explorer app, or even in the functions provided by the ```neotoma2``` R package. This tutorial will demonstrate how to explore more of this extensive metadata, with a focus on site and core location.
+The Neotoma Paleoecology Database empowers users to generate new paleobiological insights through its curation of thousands of paleo datasets and associated metadata. The extent of the metadata that Neotoma curates may not be obvious to its users, because it is not all exposed in the Neotoma Explorer app, or even in the functions provided by the ```neotoma2``` R package. If you are unfamiliar with a paleorecord, then it is especially important for you to grapple with its metadata to ensure that you understand the data you are working with.
 
-# Packages
+This tutorial will demonstrate how to explore more of this extensive metadata, with a focus on site and core location. By the end of this tutorial, you should be able to
+* check whether a site in Neotoma is stored as a point or a polygon
+* understand the difference between the Neotoma sites table and collectionunits table, and
+* use the Open Neotoma schema visualization to search for unfamiliar metadata tables.
 
-Before we do any data wrangling, we'll load up some packages that we'll need.
+# What are metadata?
+
+Before we do any data wrangling, let's define metadata. Metadata are data about data; they contextualize data, making it meaningful and usable. Among other things, they can concern provenance (who collected the data? From where?), method (how did they collect the data?), and policy and ethics (did the data collection process require a review process? How are the data licensed to be used?). It is important to notice that the distinction between data and metadata can be a little slippery - it depends on the question you're asking. If you're doing a single-site analysis of pollen proportions over time, then the pollen proportions are your data, and the site coordinates are metadata. But if you're looking across multiple sites for any pollen surface samples with a Cyperaceae proportion greater than 10%, then your site coordinates are now themselves the data.
+
+# Getting Data
+
+## Packages
+
+First, let's load up some packages we'll need.
 
 ```{r packages, warning=FALSE, message=FALSE}
 
@@ -84,13 +95,10 @@ library(sf)
 library(leaflet)
 library(jsonlite)
 library(httr)
-##library(ggplot2)
-##library(analogue)
-
 
 ```
 
-# Getting Data
+## Sites of interest
 
 Now that we have our packages loaded, we can grab some sites that we care about. This tutorial assumes you already know how to get data through the ```neotoma2``` R package. If you need a refresher, please see this [tutorial](https://open.neotomadb.org/EPD_binder/simple_workflow.html).  
 
@@ -104,7 +112,7 @@ tanganyikaSites = get_sites(sitename = "%Tanganyika%")
 plotLeaflet(tanganyikaSites)
 ```
 
-We found four sites, and they seem to be located along the middle of the lake. But we need to be careful here. The ```plotLeaflet()``` function will plot all sites in Neotoma as points, even if the coordinates of the site geometries are really stored in Neotoma as polygons. In the Neotoma data model, sites refer to the general localities from which paleodata are extracted, but not necessarily the precise locations at which cores are taken. In the case of a small lake, this might not make a difference to your analysis. But for a big lake like Lake Tanganyika, the difference between the centroid of a polygon and the actual core locations may be meaningfully different. Fortunately, Neotoma often stores core location information in a separate object, the collection unit. 
+We found four sites, and they seem to be located along the middle of the lake. But we need to be careful here. The ```plotLeaflet()``` function will plot all sites in Neotoma as points, even if the coordinates of the site geometries are really stored in Neotoma as polygons. In the Neotoma data model, sites refer to the general localities from which paleodata are extracted, but not necessarily the precise locations at which cores are taken. In the case of a small lake, this might not make a difference to your analysis. But for a big lake like Lake Tanganyika, the difference between the centroid of a polygon and the actual core locations may be meaningfully different. Fortunately, Neotoma often stores core location information in a separate object, the collection unit. Sites are the places where your data collection took place generally, and collection units are the particular materials you're analyzing from a site - collection units could be cores, excavations, middens, sections, specimens, etc. More on the distinction between sites and collection units [here](https://open.neotomadb.org/neotoma2/inst/doc/neotoma2-package.html).
 
 # Points and polygons
 
@@ -113,7 +121,7 @@ Let's check whether the Lake Tanganyika site objects are really points, or if th
 
 The ```plotLeaflet()``` function is a great tool for understanding general site location, but it can sometimes mislead us into thinking that a site is described with more precision in Neotoma than it actually is. This isn't always a problem - sometimes all we need is general site location. But if we're trying to be careful about site location - if, for instance, we're doing an analysis that is sensitive to small-scale spatial variation - then we're going to want to grab more authoritative Neotoma metadata about site location. We can do this through one of [Neotoma's API calls](https://api.neotomadb.org/api-docs/).
 
-In particular, we're going to use an API that requires a Neotoma siteid, or comma-separated string of siteids, as an input, and outputs site and dataset metadata. First we'll format the siteids from the Tanganyika sites we found earlier as a comma-separated string, and then we'll paste them into the particular API call we'd like to make. We send a ```GET()``` request and unpack the response with the ```content()``` function, focusing just on what's under the <i>data</i> header. And we can look at the beginning of our output (which we call siteMetadata).
+In particular, we're going to use an API that requires a Neotoma siteid, or comma-separated string of siteids, as an input. The output of this API will be site and dataset metadata. First we'll format the siteids from the Tanganyika sites we found earlier as a comma-separated string, and then we'll paste them into the particular API call we'd like to make. We send a ```GET()``` request and unpack the response with the ```content()``` function, focusing just on what's under the <i>data</i> header. And we can look at the beginning of our output (which we call siteMetadata).
 
 ```{r api-sites, echo=TRUE, warning=FALSE}
 
@@ -156,39 +164,7 @@ for (i in seq(length(siteMetadata))) {
       }
     }
     
- #    if (!is.null(siteMetadata[[i]]$site$datasets[[j]]$doi[[1]])) {
- #       siteMetadata_mat[[idx2, 11]] = siteMetadata[[i]]$site$datasets[[j]]$doi[[1]]
-  #   }
-  #  
-  #  if (!is.null(siteMetadata[[i]]$site$datasets[[j]]$agerange[[1]][[1]])) {
-  #      siteMetadata_mat[[idx2, 12]] = siteMetadata[[i]]$site$datasets[[j]]$agerange[[1]][[1]]
-  #  }
-  #  
-  #  if (!is.null(siteMetadata[[i]]$site$datasets[[j]]$agerange[[1]][[2]])) {
-  #      siteMetadata_mat[[idx2, 13]] = siteMetadata[[i]]$site$datasets[[j]]$agerange[[1]][[2]]
-  #    }
-  #  if (!is.null(siteMetadata[[i]]$site$datasets[[j]]$agerange[[1]][[3]])) {
-  #      siteMetadata_mat[[idx2, 14]] = siteMetadata[[i]]$site$datasets[[j]]$agerange[[1]][[3]]
-  #  }
-  #  
-  #  if (!is.null(siteMetadata[[i]]$site$datasets[[j]]$database)) {
-  #      siteMetadata_mat[[idx2, 15]] = siteMetadata[[i]]$site$datasets[[j]]$database
-  #  }
-  #  if (!is.null(siteMetadata[[i]]$site$datasets[[j]]$datasetid)) {
-  #      siteMetadata_mat[[idx2, 16]] = siteMetadata[[i]]$site$datasets[[j]]$datasetid
-  #  }
-  #  
-  #  if (!is.null(siteMetadata[[i]]$site$datasets[[j]]$datasetpi[[1]]$contactname)) {
-  #      siteMetadata_mat[[idx2, 17]] = siteMetadata[[i]]$site$datasets[[j]]$datasetpi[[1]]$contactname
-  #  }
-  #  
-  #  if (!is.null(siteMetadata[[i]]$site$datasets[[j]]$datasettype)) {
-  #      siteMetadata_mat[[idx2, 18]] = siteMetadata[[i]]$site$datasets[[j]]$datasettype
-  #  }
-  #  
-  #  if (!is.null(siteMetadata[[i]]$site$datasets[[j]]$datasetnotes)) {
-  #      siteMetadata_mat[[idx2, 19]] = siteMetadata[[i]]$site$datasets[[j]]$datasetnotes
-  #  }
+ 
   }
 }
 
@@ -197,7 +173,6 @@ siteMetadata_df = as.data.frame(siteMetadata_mat)
 
 names(siteMetadata_df) = c("siteid","sitename","sitedescription","sitenotes","geography","altitude","collectionunitid","collectionunit","handle","unittype")
 
-#names(siteMetadata_df) = c("siteid","sitename","sitedescription","sitenotes","geography","altitude","collectionunitid","collectionunit","handle","unittype","dataset_doi","dataset_agerange_units","dataset_ageold","dataset_ageyoung","database","datasetid","datasetpi","datasettype","datasetnotes")
 
 siteMetadata_df = distinct(siteMetadata_df)
 
@@ -243,7 +218,7 @@ leaflet() %>%
 
 Aha: three of our four sites are in fact polygons, not points ! The site object in Neotoma may only bound the locality in which an investigation has occurred in the most general terms. 
 
-So we've learned that the site isn't the right level at which to be careful about pollen core location. Where, then, do we find the information about core location?? It turns out we need to look to the collectionunits table, accessible through an API. 
+So we've learned that the site doesn't give us precise information about the location of a pollen record. Where, then, do we find the information about core location?? It turns out we need to look to the collectionunits table, accessible through an API. 
 
 # The collectionunits table
 
@@ -354,5 +329,11 @@ datatable(filtered_colls[c(1,3,6,14,15,16,21,22,23)],rownames=FALSE)
 ```
 
 If we do that, we find the substrate is either clay or mud, silt, or unrecorded. I guess that's not too surprising for sediment cores !
+
+# Conclusion
+
+Over the course of this tutorial, we discovered that Neotoma sites from Lake Tanganyika are described mostly with polygons, not points, and we learned where to find more precise information about core location for those sites. Lastly, we briefly explored a resource for discovering even more Neotoma metadata.
+
+We hope that this dip into Neotoma metadata motivates you to dive further into the Neotoma data model - it's a rich resource ! If you would like to provide feedback about this tutorial, please complete this [form](https://docs.google.com/forms/d/e/1FAIpQLSf7aRsbQMa_hj2CKwcpGmF26Huk4MdP9pj5M7zcVF4K2d2zFQ/viewform?usp=sf_link).
 
 <div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
