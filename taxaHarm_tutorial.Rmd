@@ -204,7 +204,7 @@ pollendata = data  %>% left_join(poltots) %>% group_by(siteid,age,variablename) 
 
 ```
 
-# Olea capensis latitudinal shifts
+# Olea capensis elevation shifts
 
 Let's say we're interested in latitudinal shifts in Olea capensis over time. We can filter our data for just those instances where Olea capensis is greater than 5% of the pollen assemblage with the code below. We filter for when the variablename is "Olea capensis" and when its proportion is greater than 0.05. When I do that, in November 2024, I get 127 instances of greater than 5% Olea capensis.
 
@@ -217,7 +217,7 @@ oleacap_noHarm = pollendata %>% dplyr::filter(variablename == "Olea capensis") %
 
 
 ggplot() +
-  geom_point(mapping=aes(x=age,y=lat),alpha=0.8,color='red',data=oleacap_noHarm) +
+  geom_point(mapping=aes(x=age,y=elev),alpha=0.8,color='red',data=oleacap_noHarm) +
   scale_x_reverse() +
   theme_bw()
 
@@ -254,16 +254,11 @@ oleacap_Harm = pollendata %>% dplyr::filter(variablename %in% oleatable$variable
 
 
 ggplot() +
-    geom_point(mapping=aes(x=age,y=lat),alpha=0.8,color='blue',data=oleacap_Harm) +
-    geom_point(mapping=aes(x=age,y=lat),alpha=0.8,color='red',data=oleacap_noHarm) +
+    geom_point(mapping=aes(x=age,y=elev),alpha=0.8,color='blue',data=oleacap_Harm) +
+    geom_point(mapping=aes(x=age,y=elev),alpha=0.8,color='red',data=oleacap_noHarm) +
   scale_x_reverse(limits=c(20000,0)) +
   theme_bw()
 
-
-ggplot() + geom_smooth(mapping=aes(x=age,y=elev),alpha=0.5,color="lightblue",fill="lightblue",data=oleacap_Harm) +
-    geom_point(mapping=aes(x=age,y=elev),alpha=0.8,color='blue',data=oleacap_Harm) +
-    scale_x_reverse(limits=c(20000,0)) +
-    theme_bw()
 
 
 ```
