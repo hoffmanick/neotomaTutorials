@@ -112,7 +112,9 @@ tanganyikaSites = get_sites(sitename = "%Tanganyika%")
 plotLeaflet(tanganyikaSites)
 ```
 
-We found four sites, and they seem to be located along the middle of the lake. But we need to be careful here. The ```plotLeaflet()``` function will plot all sites in Neotoma as points, even if the coordinates of the site geometries are really stored in Neotoma as polygons. In the Neotoma data model, sites refer to the general localities from which paleodata are extracted, but not necessarily the precise locations at which cores are taken. In the case of a small lake, this might not make a difference to your analysis. But for a big lake like Lake Tanganyika, the difference between the centroid of a polygon and the actual core locations may be meaningfully different. Fortunately, Neotoma often stores core location information in a separate object, the collection unit. Sites are the places where your data collection took place generally, and collection units are the particular materials you're analyzing from a site - collection units could be cores, excavations, middens, sections, specimens, etc. More on the distinction between sites and collection units [here](https://open.neotomadb.org/neotoma2/inst/doc/neotoma2-package.html).
+We found four sites, and they seem to be located along the middle of the lake. But we need to be careful here. The ```plotLeaflet()``` function will plot all sites in Neotoma as points, even if the coordinates of the site geometries are really stored in Neotoma as polygons. In the Neotoma data model, sites refer to the general localities from which paleodata are extracted, but not necessarily the precise locations at which cores are taken. In the case of a small lake, this might not make a difference to your analysis. But for a big lake like Lake Tanganyika, the difference between the centroid of a polygon and the actual core locations may be meaningfully different.  
+
+Fortunately, Neotoma often stores core location information in a separate object, the collection unit. Sites are the places where your data collection took place generally, and collection units are the particular materials you're analyzing from a site - collection units could be cores, excavations, middens, sections, specimens, etc. More on the distinction between sites and collection units [here](https://open.neotomadb.org/neotoma2/inst/doc/neotoma2-package.html).
 
 # Points and polygons
 
@@ -222,7 +224,7 @@ So we've learned that the site doesn't give us precise information about the loc
 
 # The collectionunits table
 
-The collectionunits table is the place to go to learn about core-specific metadata, including precise core location. In order to access the collectionunits associated with our Tanganyika sites, we first need to download the entire collectionunits table. Then we'll filter for the collection units we care about. Below, we grab the collectionunits table as a list, reformat it into a dataframe, and then an sf object, and plot it on top of our map.
+The collectionunits table is the place to go to learn about core-specific metadata, including precise core location. If a site is often a lake or peat bog, the collection unit is usually a single core from the site. In order to access the collectionunits associated with our Tanganyika sites, we first need to download the entire collectionunits table. Then we'll filter for the collection units we care about. Below, we grab the collectionunits table as a list, reformat it into a dataframe, and then an sf object, and plot it on top of our map.
 
 
 ```{r collectionunits, warning=FALSE}

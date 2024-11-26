@@ -83,7 +83,7 @@ library(httr)
 library(ggplot2)
 library(analogue)
 #library(geodata)
-library(elevatr)
+#library(elevatr)
 library(raster)
 library(tmap)
 
@@ -239,13 +239,16 @@ samps = samples(get_downloads(get_datasets(tanganyikaSites)))
 pollen = samps %>% dplyr::filter(datasettype=="pollen" & element == "pollen")
 
 site_sf = as.data.frame(tanganyikaSites)[c(4,3,2,1)] %>% st_as_sf(coords=c("long","lat"), crs="WGS84")
-site_elev = get_aws_points(site_sf, z=14)
 
-coll_elev = get_aws_points(filteredColl_sf,z=13)
+bathy = raster("tanganyika_bathy.tif")
 
 
-print(coll_elev[[1]][c(1,20)])
-print(site_elev[[1]][c(1,4)])
+coll_depth = raster::extract(bathy,st_coordinates(filteredColl_sf))
+site_depth = raster::extract(bathy,st_coordinates(site_sf))
+
+
+print(coll_depth)
+print(site_depth)
 
 
 fromneo = pollen %>% group_by(siteid,collunitid) %>% distinct(elev)

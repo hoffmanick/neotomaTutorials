@@ -68,11 +68,13 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Introduction
 
-When performing large-scale syntheses of pollen data, it is usually necessary to harmonize taxonomic systems across datasets. There are a few different reasons why taxon harmonization is important.
+When you are using and comparing pollen data from multiple sites, it is important to make sure pollen taxa are named consistently across sites. This process is called taxon harmonization. Throughout this tutorial we will be using <i>Olea</i>, the olive, as an example.
 
-1. Taxonomies have changed over the time that people have been doing pollen analysis in Africa. (example for Olea?)
-2. A particular taxon can be identified to varying resolution. For instance, Olea capensis pollen can be identified to a species-level morphotype, but sometiems analysts will only identify it to the genus level. Depending on the nature of your analysis, you may therefore want to aggregate all the Olea capensis pollen in your data to a broader Olea category.
-3. Many plant taxa are cosmopolitan. Across a regional or continental synthesis, it isn't obvious how you should deal with the question of splitting and lumping. In the case of Olea, depending on your question, you may want to treat the population from southern Africa as distinct from the east African population - or you may not. This is something you should be intentional about. 
+There are a few different reasons why taxon harmonization is important.
+
+1. Taxon names change over time. For example, the African olive once was thought to be its own species, <i>Olea africana</i>. However, with new botanical and molecular information, we now know that it is actually a subspecies, rather than its own species. So the accepted name has now been updated to <i>Olea europaea subsp. cuspidata</i>. Older datasets in Neotoma may refer to the same taxon by its older name.
+2. A particular taxon can be identified to varying resolution. For instance, <i>Olea capensis</i> pollen can be identified to a species-level morphotype, but sometimes analysts will only identify it to the genus level. Depending on the nature of your analysis, you may therefore want to aggregate all the <i>Olea capensis</i> pollen in your data to a broader <i>Olea</i> category.
+3. Many plant taxa are cosmopolitan. Across a regional or continental synthesis, it isn't obvious how you should deal with the question of splitting and lumping. In the case of <i>Olea</i>, depending on your question, you may want to treat the population from southern Africa as distinct from the east African population - or you may not. This is something you should be intentional about. 
 
 There are multiple good ways to harmonize. It all depends on what best suits the analysis you intend. 
 
@@ -204,11 +206,11 @@ pollendata = data  %>% left_join(poltots) %>% group_by(siteid,age,variablename) 
 
 ```
 
-# Olea capensis elevation shifts
+# <i>Olea capensis</i> elevation shifts
 
-Let's say we're interested in latitudinal shifts in Olea capensis over time. We can filter our data for just those instances where Olea capensis is greater than 5% of the pollen assemblage with the code below. We filter for when the variablename is "Olea capensis" and when its proportion is greater than 0.05. When I do that, in November 2024, I get 127 instances of greater than 5% Olea capensis.
+Let's say we're interested in elevation shifts in <i>Olea capensis</i> over time. We can filter our data for just those instances where <i>Olea capensis</i> is greater than 5% of the pollen assemblage with the code below. We filter for when the variablename is "<i>Olea capensis</i>" and when its proportion is greater than 0.05. When I do that in November 2024, I get 127 instances of greater than 5% <i>Olea capensis</i>.
 
-When we plot the latitude of those occurrences over time, we get a curve that shows most reliably an increase in latitude for Olea capensis, over the past 20,000 years. [connection to deglaciation?? i'm used to saying 'things move north when it warms up - but idk if that really applies in these latitudes']
+When we plot the elevation of those occurrences over time, we get a plot that shows no clear pattern of elevation change of <i>Olea capensis</i> throughout Africa over the last 20,000 years, since the last ice age.
 
 
 ``` {r partthefifth, warning = FALSE, message = FALSE}
@@ -218,7 +220,8 @@ oleacap_noHarm = pollendata %>% dplyr::filter(variablename == "Olea capensis") %
 
 ggplot() +
   geom_point(mapping=aes(x=age,y=elev),alpha=0.8,color='red',data=oleacap_noHarm) +
-  scale_x_reverse() +
+  scale_x_reverse(limits=c(20000,0)) +
+  scale_y_continuous(name = "elevation (meters)") +
   theme_bw()
 
 
@@ -226,7 +229,7 @@ ggplot() +
 
 ```
 
-The story we got from those Olea capensis data seems reliable. But we're leaving data on the table if we're not thinking about taxon harmonization. 
+The story we got from those <i>Olea capensis</i> data seems reliable. But we might be excluding some occurrences of <i>Olea capensis</i> that may have been named slightly differently by different analysts.
 
 ```{r part-three, warning = FALSE, message = FALSE}
 
@@ -238,12 +241,15 @@ datatable(oleatable[c(1,3,2)],rownames=FALSE)
 
 ```
 
-Consider the table above that shows all number of occurrences for all the different taxa with the words "Olea" and "capensis" somewhere in them from our dataset, alongside the recommended nomenclature for that taxon from the APD taxon harmonization table. "Olea capensis" is the most commonly used taxon - but there are other categories which we may want include in our analysis. In particular, the taxon is often referred to as "Olea capensis-type" to communicate that the identification is of a pollen morphology that is associated with Olea capensis but may not uniquely identify Olea capensis. The APD considers Olea capensis and Olea capensis-type to be equivalent taxa. Let us therefore include this second taxon, Olea capensis-type, in our analysis and see if it makes a difference. We probably also want to include the other three categories here - all variations on the hochstetteri subspecies of Olea capensis. Because Olea capensis pollen cannot be reliably identified to the subspecies resolution, any identification as hochstetteri in pollen likely derives from local knowledge that given the age and location of the Olea capensis pollen, it must be hochstetteri. Since we're doing a broad regional analysis of Olea capensis over time, that fine distinction doesn't matter to us.
+Consider the table above that shows all number of occurrences for all the different taxa with the words "Olea" and "capensis" somewhere in them from our dataset, alongside the recommended nomenclature for that taxon from the APD taxon harmonization table. "<i>Olea capensis</i>" is the most commonly used taxon - but there are other categories which we may want include in our analysis. In particular, the taxon is often referred to as "Olea capensis-type" to communicate that the identification is of a pollen morphology that is associated with Olea capensis but may not uniquely identify Olea capensis. The APD considers Olea capensis and Olea capensis-type to be equivalent taxa.   
+
+
+Let us therefore include this second taxon, <i>Olea capensis-type</i>, in our analysis and see if it makes a difference. We probably also want to include the other three categories here - all variations on the <i>hochstetteri</i> subspecies of <i>Olea capensis</i>. Because <i>Olea capensis</i> pollen cannot be reliably identified to the subspecies resolution, any identification as <i>hochstetteri</i> in pollen likely derives from local knowledge that given the age and location of the <i>Olea capensis</i> pollen, it must be <i>hochstetteri</i>. Since we're doing a broad regional analysis of <i>Olea capensis</i> over time, that fine distinction doesn't matter to us.
 
 
 We include these new taxa below by filtering for any of the variablenames in our table where their proportion is greater than 0.05. As of November 2024, this search returns 336 occurrences - almost 200 more than our original search !
 
-When we plot these extended data over our old data, we see that it doesn't overturn our first takeaway. It still appears that Olea capensis moved north over the last 20,000 years. But it does refine our conclusion: the movement north no longer seems as stark as before.
+When we plot these extended data over our old data, we see a clear increase in elevation at the start of the Holocene.
 
 ``` {r again}
 
@@ -265,9 +271,9 @@ ggplot() +
 
 # Pollen Analyst Comparison 
 
-Lastly, as a demonstration of why taxon harmonization matters, we'll compare the taxonomic systems of pollen analysts working near each other.
+Part of the reason there is so much variation in taxon naming is because it is difficult to be completely consistent from person to person and lab to lab. This is another key reason why harmonization matters In this section, we'll compare the taxonomic systems of pollen analysts working near each other.
 
-First we'll grab the entire sampleanalysts table from Neotoma and filter for those pollen analysts who counted pollen from Africa.
+First we'll grab the entire sampleanalysts table from Neotoma and filter for those pollen analysts who counted pollen from Africa. Then we'll join our table of contacts to our data by siteid.
 
 
 ```{r analysts, warning = FALSE, message = FALSE}
@@ -296,65 +302,68 @@ filtered_an = analyst_df %>% dplyr::filter(sampleid %in% distinct_samples$sample
 
 ```
 
-Next, we'll map where these analysts worked, so that we can compare some who work near each other.
+
 
 ``` {r nextwel, warning = FALSE, message = FALSE}
-contactcounts = filtered_an %>% group_by(contactid) %>% count() %>% arrange(desc(n))
 
-merger = contactcounts %>% left_join(filtered_an) %>% left_join(data) %>% group_by(siteid) %>% summarize(siteid=siteid, lat=lat,long=long,contactid=contactid) %>% distinct() %>% st_as_sf(coords=c("long","lat"), crs="WGS84")
+#Next, we'll map where these analysts worked, so that we #can compare some who work near each other.
 
-
-pal <- colorFactor(palette = "Set1", domain = merger$contactid)
+merger = filtered_an %>% left_join(data) %>% group_by(siteid) %>% summarize(siteid=siteid, lat=lat,long=long,contactid=contactid) %>% distinct() %>% st_as_sf(coords=c("long","lat"), crs="WGS84")
 
 
-leaflet() %>%
-  addTiles() %>%
-  addCircleMarkers(data = merger, 
-                   radius = 5, 
-                   color = ~pal(contactid), 
-                   fillColor = ~pal(contactid), 
-                   fillOpacity = 0.7, 
-                   stroke = FALSE, 
-                   popup = ~contactid)
+#pal <- colorFactor(palette = "Set1", domain = merger$contactid)
+
+
+#leaflet() %>%
+#  addTiles() %>%
+#  addCircleMarkers(data = merger, 
+#                   radius = 5, 
+#                   color = ~pal(contactid), 
+#                   fillColor = ~pal(contactid), 
+#                   fillOpacity = 0.7, 
+#                   stroke = FALSE, 
+#                   popup = ~contactid)
 
 ```
 
-Lastly, we'll do a few comparisons of people who worked near each other. Notice how the most abundant taxa for one analyst may be entirely missing for the other. This may be because they simply are naming the same plant taxa differently. 
 
 
 ``` {r lastl, warning = FALSE, message = FALSE}
+#Lastly, we'll do a few comparisons of people who worked near each other. Notice how the most abundant taxa for one analyst may be entirely missing for the other. This may be because they simply are naming the same plant taxa differently. 
 
-picks = merger %>% dplyr::filter(contactid %in% c("1022","15804"))
+#picks = merger %>% dplyr::filter(contactid %in% c("1022","15804"))
 
-people = content(GET("https://api.neotomadb.org/v1.5/data/contacts/1022,15804"))$data
+#people = content(GET("https://api.neotomadb.org/v1.5/data/contacts/1022,15804"))$data
 
-comparison = data %>% dplyr::filter(siteid %in% picks$siteid) %>% left_join(picks) %>% group_by(contactid,variablename) %>% count() %>% pivot_wider(names_from = contactid,values_from=n)
+#comparison = data %>% dplyr::filter(siteid %in% picks$siteid) %>% left_join(picks) %>% group_by(contactid,variablename) %>% count() %>% pivot_wider(names_from = contactid,values_from=n)
 
-datatable(comparison,rownames=FALSE)
-
-
-picks2 = merger %>% dplyr::filter(contactid %in% c("16030","16095"))
-
-people2 = content(GET("https://api.neotomadb.org/v1.5/data/contacts/16030,16095"))$data
-
-comparison2 = data %>% dplyr::filter(siteid %in% picks2$siteid) %>% left_join(picks2) %>% group_by(contactid,variablename) %>% count() %>% pivot_wider(names_from = contactid,values_from=n)
-
-datatable(comparison2,rownames=FALSE)
+#datatable(comparison,rownames=FALSE)
 
 
+#picks2 = merger %>% dplyr::filter(contactid %in% c("16030","16095"))
+
+#people2 = content(GET("https://api.neotomadb.org/v1.5/data/contacts/16030,16095"))$data
+
+#comparison2 = data %>% dplyr::filter(siteid %in% picks2$siteid) %>% left_join(picks2) %>% group_by(contactid,variablename) %>% count() %>% pivot_wider(names_from = contactid,values_from=n)
+
+#datatable(comparison2,rownames=FALSE)
 
 
-picks3 = merger %>% dplyr::filter(contactid %in% c("17668","262"))
 
-people3 = content(GET("https://api.neotomadb.org/v1.5/data/contacts/17668,262"))$data
 
-comparison3 = data %>% dplyr::filter(siteid %in% picks3$siteid) %>% left_join(picks3) %>% group_by(contactid,variablename) %>% count() %>% pivot_wider(names_from = contactid,values_from=n)
+#picks3 = merger %>% dplyr::filter(contactid %in% c("17668","262"))
 
-datatable(comparison3,rownames=FALSE)
+#people3 = content(GET("https://api.neotomadb.org/v1.5/data/contacts/17668,262"))$data
+
+#comparison3 = data %>% dplyr::filter(siteid %in% picks3$siteid) %>% left_join(picks3) %>% group_by(contactid,variablename) %>% count() %>% pivot_wider(names_from = contactid,values_from=n)
+
+#datatable(comparison3,rownames=FALSE)
 
 ```
 
-the first way to do the PCA and clustering is to aggregate all the names any person ever used and all the names they didn't use.
+We're going to do cluster and principal components analyses on our pollen data to see how much distance is engendered by different taxonomic naming practices. We'll filter our new table for just those sites in eastern Africa, so that all the sites we look at will have relatively similar ecologies, and any differences we among analysts will be more likely to derive from different ways of naming.
+
+We pivot our data table wider, making a table where each row corresponds to a particular analyst, and each column to a taxon name. We give a value of 1 to taxa names used by an analyst, and 0 to ones not used by an analyst. Then we cluster with the agglomerative ```hclust()``` method and use prcomp() to make a PCA. 
 
 ```{r clusterpollenanalyst}
 
@@ -389,7 +398,7 @@ wide_data[,-1][wide_data[,-1] !=0 ] = 1
 
 justvals = wide_data[,-1]
 library(factoextra)
-library(mclust)
+#library(mclust)
 library(cluster)
 
 
@@ -414,13 +423,6 @@ names(people_df) = c("contactname","contactid")
 
 
 wide_data = wide_data %>% left_join(people_df)
-## kmeans
-
-    fviz_nbclust(justvals, kmeans, method = "wss") + geom_vline(xintercept = 3, linetype = 2)
-
-        k = 3
-    kmeans_clustering <- kmeans(justvals, centers = k, nstart = 20)
-  
 ## hclust
     
       distances = dist(justvals, method = 'euclidean')
@@ -430,24 +432,7 @@ wide_data = wide_data %>% left_join(people_df)
     
       
     plot(agglomerative_clustering,labels=wide_data$contactname)
- 
-## diana
-        
-    # compute divisive hierarchical clustering
-    divisive_clustering <- diana(justvals)
-    # Divise coefficient
-    print(divisive_clustering$dc)
-    
-  #plot using a colors dendrogram to see our clusters with 3 groups
-fviz_dend(divisive_clustering, cex = 0.5, k = 3, color_labels_by_k = TRUE, show_labels=FALSE)
-plot(divisive_clustering,labels=wide_data$contactname)
-##mclust
 
-    # Create a GMM model
-    dataset_mc <- Mclust(justvals)
-    summary(dataset_mc)
-
-library(ggbiplot)
 pca = prcomp(justvals)    
 
 wide_data$pc1 = pca$x[,1]
@@ -490,66 +475,66 @@ pca$rotation[,3][abs(pca$rotation[,3]) %in% tail(sort(abs(pca$rotation[,3])), 5)
 
 ```
 
-the second way to cluster is to count all the names used and not used at any given site and just see who counted at that site
+Now we repeat our analysis, except that instead of using the original taxa names provided by analysts, we use the recommended nomenclature from the APD. We should see the points converge somehow. In at least one sense, they do: the original wide table has 1452 column names representing different taxa, while the harmonized wide table has only 817 variables representing different taxa. [But other evidence of convergence is hard to see ??]
 
 ``` {r more-granular}
+wide_data_harm = data %>% dplyr::filter(siteid %in% merger_east$siteid) %>% left_join(merger) %>% left_join(apd_harmTable, by=join_by(variablename == Taxon..original.name.)) %>% group_by(contactid,Taxon..revised.nomenclature.) %>% count() %>% pivot_wider(id_cols = contactid, names_from = Taxon..revised.nomenclature., values_from = n, values_fill = 0) 
 
+wide_data_harm[,-1][wide_data_harm[,-1] !=0 ] = 1
 
-wide_data_gran = data %>% dplyr::filter(siteid %in% merger_east$siteid) %>% left_join(merger) %>% group_by(siteid,variablename) %>% count() %>% pivot_wider(id_cols = siteid, names_from = variablename, values_from = n, values_fill = 0) 
-
-wide_data_gran[,-1][wide_data_gran[,-1] !=0 ] = 1
-
-
-justvals_gran = wide_data_gran[,-1]
-
-pca2 = prcomp(justvals_gran)    
-
-
-sitecontactkey = contactcounts %>% left_join(filtered_an) %>% left_join(data) %>% distinct(contactid,siteid)
-
-wide_data_gran$pc1 = pca2$x[,1]
-wide_data_gran$pc2 = pca2$x[,2]
-
-wide_data_gran = wide_data_gran %>% dplyr::left_join(sitecontactkey) %>% left_join(people_df)
-
-ggplot(wide_data_gran) + 
-  geom_point(mapping=aes(x=pc1,y=pc2,color=contactname)) +
-  geom_text(mapping=aes(x=(pc1+0.5),y=(pc2-0.5),label=contactname,color=contactname)) +
-  labs(x = "PC1 (11.7%)", y = "PC2 (5.4%)") +
-  theme_bw() +
-  theme(legend.position = "none") 
-
-
-ggplot(wide_data_gran) + 
-  geom_point(mapping=aes(x=pc1,y=pc2,color=contactname)) +
-  geom_text(mapping=aes(x=(pc1+0.2),y=(pc2-0.2),label=contactname,color=contactname)) +
-  labs(x = "PC1 (11.7%)", y = "PC2 (5.4%)") +
-  scale_x_continuous(limits=c(-3.75,3.75)) +
-  scale_y_continuous(limits=c(-3,1.5)) +
-  theme_bw()  +
-  theme(legend.position = "none") 
+justvals_harm = wide_data_harm[,-1]
 
 
 
+wide_data_harm = wide_data_harm %>% left_join(people_df)
+## hclust
+    
+      distances_harm = dist(justvals_harm, method = 'euclidean')
+    agglomerative_clustering_harm <- hclust(distances_harm, method = 'average')
+    
+        fviz_dend(agglomerative_clustering_harm, cex = 0.5, k = 3, color_labels_by_k = TRUE, show_labels=TRUE)
+    
+      
+    plot(agglomerative_clustering_harm,labels=wide_data_harm$contactname)
 
-ggplot(wide_data_gran) + 
-  geom_point(mapping=aes(x=pc1,y=pc2,color=contactname)) +
-  geom_text(mapping=aes(x=(pc1+0.1),y=(pc2-0.1),label=contactname,color=contactname)) +
-  labs(x = "PC1 (11.7%)", y = "PC2 (5.4%)") +
-  scale_x_continuous(limits=c(0,3.25)) +
-  scale_y_continuous(limits=c(-1,1.5)) +
-  theme_bw()  +
-  theme(legend.position = "none") 
+pca_harm = prcomp(justvals_harm)    
+
+wide_data_harm$pc1 = pca_harm$x[,1]
+wide_data_harm$pc2 = pca_harm$x[,2]
+
+ggplot(wide_data_harm) + 
+  geom_point(mapping=aes(x=pc1,y=pc2)) +
+  geom_text(mapping=aes(x=(pc1+0.5),y=(pc2-0.5),label=contactname)) +
+  labs(x = "PC1 (22.9%)", y = "PC2 (9.5%)") +
+  theme_bw()
+
+
+ggplot(wide_data_harm) + 
+  geom_point(mapping=aes(x=pc1,y=pc2)) +
+  geom_text(mapping=aes(x=(pc1+0.2),y=(pc2-0.2),label=contactname)) +
+  labs(x = "PC1 (22.9%)", y = "PC2 (9.5%)") +
+  scale_x_continuous(limits=c(-1,4)) +
+  scale_y_continuous(limits=c(-3,1)) +
+  theme_bw()
+
+
+
+
+ggplot(wide_data_harm) + 
+  geom_point(mapping=aes(x=pc1,y=pc2)) +
+  geom_text(mapping=aes(x=(pc1+0.1),y=(pc2-0.1),label=contactname)) +
+  labs(x = "PC1 (22.9%)", y = "PC2 (9.5%)") +
+  scale_x_continuous(limits=c(1.6,3.5)) +
+  scale_y_continuous(limits=c(-2,-0.6)) +
+  theme_bw()
 
 #pc1 biggest loadings
-pca2$rotation[,1][abs(pca2$rotation[,1]) %in% tail(sort(abs(pca2$rotation[,1])), 5)] 
+pca_harm$rotation[,1][abs(pca_harm$rotation[,1]) %in% tail(sort(abs(pca_harm$rotation[,1])), 5)] 
 
 #pc2 biggest loadings
-pca2$rotation[,2][abs(pca2$rotation[,2]) %in% tail(sort(abs(pca2$rotation[,2])), 5)] 
+pca_harm$rotation[,2][abs(pca_harm$rotation[,2]) %in% tail(sort(abs(pca_harm$rotation[,2])), 5)] 
 
 #pc3 biggest loadings
-pca2$rotation[,3][abs(pca2$rotation[,3]) %in% tail(sort(abs(pca2$rotation[,3])), 5)] 
-
-
+pca_harm$rotation[,3][abs(pca_harm$rotation[,3]) %in% tail(sort(abs(pca_harm$rotation[,3])), 5)] 
 ```
 <div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
