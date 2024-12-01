@@ -392,11 +392,11 @@ tm_shape(osm.raster(coordinates_sf)) +
   tm_shape(merger_east) +
   tm_dots(col="contactid",size=0.5)
 
-wide_data = data %>% dplyr::filter(siteid %in% merger_east$siteid) %>% left_join(merger) %>% group_by(contactid,variablename) %>% count() %>% pivot_wider(id_cols = contactid, names_from = variablename, values_from = n, values_fill = 0) 
+wide_data = data %>% dplyr::filter(siteid %in% merger_east$siteid) %>% left_join(merger) %>%  left_join(apd_harmTable, by=join_by(variablename == Taxon..original.name.)) %>% dplyr::filter(!is.na(Taxon..revised.nomenclature.)) %>% 
+  group_by(contactid,variablename) %>% count() %>% pivot_wider(id_cols = contactid, names_from = variablename, values_from = n, values_fill = 0) 
 
 wide_data[,-1][wide_data[,-1] !=0 ] = 1
 
-justvals = wide_data[,-1]
 library(factoextra)
 #library(mclust)
 library(cluster)
@@ -422,119 +422,91 @@ people_df = as.data.frame(people_mat)
 names(people_df) = c("contactname","contactid")
 
 
-wide_data = wide_data %>% left_join(people_df)
-## hclust
-    
-      distances = dist(justvals, method = 'euclidean')
-    agglomerative_clustering <- hclust(distances, method = 'average')
-    
-        fviz_dend(agglomerative_clustering, cex = 0.5, k = 3, color_labels_by_k = TRUE, show_labels=TRUE)
-    
-      
-    plot(agglomerative_clustering,labels=wide_data$contactname)
-
-pca = prcomp(justvals)    
-
-wide_data$pc1 = pca$x[,1]
-wide_data$pc2 = pca$x[,2]
-
-ggplot(wide_data) + 
-  geom_point(mapping=aes(x=pc1,y=pc2)) +
-  geom_text(mapping=aes(x=(pc1+0.5),y=(pc2-0.5),label=contactname)) +
-  labs(x = "PC1 (22.7%)", y = "PC2 (9.8%)") +
-  theme_bw()
-
-
-ggplot(wide_data) + 
-  geom_point(mapping=aes(x=pc1,y=pc2)) +
-  geom_text(mapping=aes(x=(pc1+0.2),y=(pc2-0.2),label=contactname)) +
-  labs(x = "PC1 (22.7%)", y = "PC2 (9.8%)") +
-  scale_x_continuous(limits=c(-1,4)) +
-  scale_y_continuous(limits=c(-3,1)) +
-  theme_bw()
-
-
-
-
-ggplot(wide_data) + 
-  geom_point(mapping=aes(x=pc1,y=pc2)) +
-  geom_text(mapping=aes(x=(pc1+0.1),y=(pc2-0.1),label=contactname)) +
-  labs(x = "PC1 (22.7%)", y = "PC2 (9.8%)") +
-  scale_x_continuous(limits=c(1.6,3.5)) +
-  scale_y_continuous(limits=c(-2,-0.6)) +
-  theme_bw()
-
-#pc1 biggest loadings
-pca$rotation[,1][abs(pca$rotation[,1]) %in% tail(sort(abs(pca$rotation[,1])), 5)] 
-
-#pc2 biggest loadings
-pca$rotation[,2][abs(pca$rotation[,2]) %in% tail(sort(abs(pca$rotation[,2])), 5)] 
-
-#pc3 biggest loadings
-pca$rotation[,3][abs(pca$rotation[,3]) %in% tail(sort(abs(pca$rotation[,3])), 5)] 
-
 ```
 
 Now we repeat our analysis, except that instead of using the original taxa names provided by analysts, we use the recommended nomenclature from the APD. We should see the points converge somehow. In at least one sense, they do: the original wide table has 1452 column names representing different taxa, while the harmonized wide table has only 817 variables representing different taxa. [But other evidence of convergence is hard to see ??]
 
 ``` {r more-granular}
-wide_data_harm = data %>% dplyr::filter(siteid %in% merger_east$siteid) %>% left_join(merger) %>% left_join(apd_harmTable, by=join_by(variablename == Taxon..original.name.)) %>% group_by(contactid,Taxon..revised.nomenclature.) %>% count() %>% pivot_wider(id_cols = contactid, names_from = Taxon..revised.nomenclature., values_from = n, values_fill = 0) 
+
+
+wide_data = data %>% dplyr::filter(siteid %in% merger_east$siteid) %>% left_join(merger) %>%  left_join(apd_harmTable, by=join_by(variablename == Taxon..original.name.)) %>% dplyr::filter(!is.na(Taxon..revised.nomenclature.)) %>% 
+  group_by(contactid,variablename) %>% count() %>% pivot_wider(id_cols = contactid, names_from = variablename, values_from = n, values_fill = 0) 
+
+wide_data[,-1][wide_data[,-1] !=0 ] = 1
+
+
+wide_data_harm = data %>% dplyr::filter(siteid %in% merger_east$siteid) %>% left_join(merger) %>% left_join(apd_harmTable, by=join_by(variablename == Taxon..original.name.)) %>% dplyr::filter(!is.na(Taxon..revised.nomenclature.)) %>% group_by(contactid,Taxon..revised.nomenclature.) %>% count() %>% pivot_wider(id_cols = contactid, names_from = Taxon..revised.nomenclature., values_from = n, values_fill = 0) 
+
+
+
 
 wide_data_harm[,-1][wide_data_harm[,-1] !=0 ] = 1
 
-justvals_harm = wide_data_harm[,-1]
 
+
+
+extranames_harm = as.data.frame(names(wide_data))
+names(extranames_harm) = c("extraharm")
+extranames_harm = extranames_harm %>% dplyr::filter(!extraharm %in% names(wide_data_harm))
+
+added_part_harm = as.data.frame(matrix(nrow=30,ncol=length(extranames_harm[[1]]),data=0))
+names(added_part_harm) = extranames_harm[[1]]
+
+
+extranames_noharm = as.data.frame(names(wide_data_harm))
+names(extranames_noharm) = c("extraharm")
+extranames_noharm = extranames_noharm %>% dplyr::filter(!extraharm %in% names(wide_data)) %>% dplyr::filter(!extraharm %in% c("pc1","pc2"))
+
+added_part_noharm = as.data.frame(matrix(nrow=30,ncol=length(extranames_noharm[[1]]),data=0))
+names(added_part_noharm) = extranames_noharm[[1]]
+
+wide_data_harm = wide_data_harm %>% cbind(added_part_harm)
+wide_data = wide_data %>% cbind(added_part_noharm)
 
 
 wide_data_harm = wide_data_harm %>% left_join(people_df)
-## hclust
+wide_data = wide_data %>% left_join(people_df)
+
+
+wide_data = wide_data %>% mutate(status = "noharm")
+wide_data_harm = wide_data_harm %>% mutate(status="harm")
+
+wide_data_all = rbind(wide_data,wide_data_harm)
+
+justvals_harm = wide_data_harm[,-1,]
+
+
+justvals_all = wide_data_all %>% ungroup() %>% dplyr::select(!c(contactname,contactid,status))
+
+  distances_all = dist(justvals_all, method = 'euclidean')
+    agglomerative_clustering_all <- hclust(distances_all, method = 'average')
     
-      distances_harm = dist(justvals_harm, method = 'euclidean')
-    agglomerative_clustering_harm <- hclust(distances_harm, method = 'average')
-    
-        fviz_dend(agglomerative_clustering_harm, cex = 0.5, k = 3, color_labels_by_k = TRUE, show_labels=TRUE)
+        fviz_dend(agglomerative_clustering_all, cex = 0.5, k = 3, color_labels_by_k = TRUE, show_labels=TRUE)
     
       
-    plot(agglomerative_clustering_harm,labels=wide_data_harm$contactname)
+    plot(agglomerative_clustering_all,labels=paste0(wide_data_all$contactname,"_",wide_data_all$status))
 
-pca_harm = prcomp(justvals_harm)    
+pca_all = prcomp(justvals_all)    
 
-wide_data_harm$pc1 = pca_harm$x[,1]
-wide_data_harm$pc2 = pca_harm$x[,2]
+wide_data_all$pc1 = pca_all$x[,1]
+wide_data_all$pc2 = pca_all$x[,2]
 
-ggplot(wide_data_harm) + 
-  geom_point(mapping=aes(x=pc1,y=pc2)) +
-  geom_text(mapping=aes(x=(pc1+0.5),y=(pc2-0.5),label=contactname)) +
-  labs(x = "PC1 (22.9%)", y = "PC2 (9.5%)") +
+
+ggplot(wide_data_all) + 
+  geom_point(mapping=aes(x=pc1,y=pc2,color=status)) +
+  geom_text(mapping=aes(x=(pc1+0.5),y=(pc2-0.5),label=contactname,color=status)) +
+  labs(x = "PC1 (18.1%)", y = "PC2 (12.2%)") +
   theme_bw()
 
-
-ggplot(wide_data_harm) + 
-  geom_point(mapping=aes(x=pc1,y=pc2)) +
-  geom_text(mapping=aes(x=(pc1+0.2),y=(pc2-0.2),label=contactname)) +
-  labs(x = "PC1 (22.9%)", y = "PC2 (9.5%)") +
-  scale_x_continuous(limits=c(-1,4)) +
-  scale_y_continuous(limits=c(-3,1)) +
-  theme_bw()
-
-
-
-
-ggplot(wide_data_harm) + 
-  geom_point(mapping=aes(x=pc1,y=pc2)) +
-  geom_text(mapping=aes(x=(pc1+0.1),y=(pc2-0.1),label=contactname)) +
-  labs(x = "PC1 (22.9%)", y = "PC2 (9.5%)") +
-  scale_x_continuous(limits=c(1.6,3.5)) +
-  scale_y_continuous(limits=c(-2,-0.6)) +
-  theme_bw()
 
 #pc1 biggest loadings
-pca_harm$rotation[,1][abs(pca_harm$rotation[,1]) %in% tail(sort(abs(pca_harm$rotation[,1])), 5)] 
+pca_all$rotation[,1][abs(pca_all$rotation[,1]) %in% tail(sort(abs(pca_all$rotation[,1])), 5)] 
 
 #pc2 biggest loadings
-pca_harm$rotation[,2][abs(pca_harm$rotation[,2]) %in% tail(sort(abs(pca_harm$rotation[,2])), 5)] 
+pca_all$rotation[,2][abs(pca_all$rotation[,2]) %in% tail(sort(abs(pca_all$rotation[,2])), 5)] 
 
 #pc3 biggest loadings
-pca_harm$rotation[,3][abs(pca_harm$rotation[,3]) %in% tail(sort(abs(pca_harm$rotation[,3])), 5)] 
+pca_all$rotation[,3][abs(pca_all$rotation[,3]) %in% tail(sort(abs(pca_all$rotation[,3])), 5)] 
+
 ```
 <div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
