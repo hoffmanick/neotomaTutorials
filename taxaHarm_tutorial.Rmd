@@ -483,8 +483,9 @@ justvals_all = wide_data_all %>% ungroup() %>% dplyr::select(!c(contactname,cont
     
         fviz_dend(agglomerative_clustering_all, cex = 0.5, k = 3, color_labels_by_k = TRUE, show_labels=TRUE)
     
+        
       
-    plot(agglomerative_clustering_all,labels=paste0(wide_data_all$contactname,"_",wide_data_all$status))
+    plot(agglomerative_clustering_all,labels=paste0(wide_data_all$contactname,"_",wide_data_all$status),color="red")
 
 pca_all = prcomp(justvals_all)    
 

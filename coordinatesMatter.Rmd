@@ -83,7 +83,7 @@ library(httr)
 library(ggplot2)
 library(analogue)
 #library(geodata)
-#library(elevatr)
+library(elevatr)
 library(raster)
 library(tmap)
 
@@ -240,12 +240,44 @@ pollen = samps %>% dplyr::filter(datasettype=="pollen" & element == "pollen")
 
 site_sf = as.data.frame(tanganyikaSites)[c(4,3,2,1)] %>% st_as_sf(coords=c("long","lat"), crs="WGS84")
 
-bathy = raster("tanganyika_bathy.tif")
+bathy = stack("tanganyika_bathy.tif")
 
 
-coll_depth = raster::extract(bathy,st_coordinates(filteredColl_sf))
-site_depth = raster::extract(bathy,st_coordinates(site_sf))
+coll_depth = raster::extract(bathy,st_coordinates(filteredColl_sf)) %>% cbind(filteredColl_sf)
+site_depth = raster::extract(bathy,st_coordinates(site_sf)) %>% cbind(site_sf)
 
+contours = st_read("TCarta_Tanganyika_contours.shp")
+
+tm_shape(bathy[[1:3]]) + tm_rgb(r = 1, g = 2, b = 3)
+
+site_depths_cont = matrix(nrow=4,ncol=2)
+
+coll_depths_cont = matrix(nrow=11,ncol=2)
+
+elev_aws = get_aws_points(site_sf,z=10)
+
+
+for (i in seq(1,4)) {
+  site_depths_cont[i,1] = contours[which.min(st_distance(site_sf[i,],contours)),]$ELEVATION
+  site_depths_cont[i,2] = min(st_distance(site_sf[i,],contours)) 
+}
+
+for (i in seq(1,11)) {
+  coll_depths_cont[i,1] = contours[which.min(st_distance(filteredColl_sf[i,],contours)),]$ELEVATION
+  coll_depths_cont[i,2] = min(st_distance(filteredColl_sf[i,],contours)) 
+}
+
+site_depths_cont = as.data.frame(site_depths_cont)
+
+coll_depths_cont = as.data.frame(coll_depths_cont)
+
+names(site_depths_cont) = c("depth","distance")
+
+names(coll_depths_cont) = c("depth","distance")
+
+coll_depths_cont = coll_depths_cont %>% cbind(filteredColl_sf)
+
+site_depths_cont = site_depths_cont %>% cbind(site_sf)
 
 print(coll_depth)
 print(site_depth)
@@ -253,6 +285,7 @@ print(site_depth)
 
 fromneo = pollen %>% group_by(siteid,collunitid) %>% distinct(elev)
 print(fromneo)
+filteredColl_sf[c(1,6,9)]
 ```
 
 # Sedge abundance
