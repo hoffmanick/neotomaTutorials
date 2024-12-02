@@ -502,12 +502,15 @@ wide_data_all$pc1 = pca_all$x[,1]
 wide_data_all$pc2 = pca_all$x[,2]
 
 
-ggplot(wide_data_all) + 
-  geom_point(mapping=aes(x=pc1,y=pc2,color=status)) +
+pcaplot = ggplot(wide_data_all) + 
+  geom_point(mapping=aes(x=pc1,y=pc2,color=status,group=contactname)) +
   geom_text(mapping=aes(x=(pc1+0.5),y=(pc2-0.5),label=contactname,color=status)) +
   labs(x = "PC1 (18.1%)", y = "PC2 (12.2%)") +
   theme_bw()
 
+
+library(plotly)
+ggplotly(pcaplot)
 
 #pc1 biggest loadings
 pca_all$rotation[,1][abs(pca_all$rotation[,1]) %in% tail(sort(abs(pca_all$rotation[,1])), 5)] 
