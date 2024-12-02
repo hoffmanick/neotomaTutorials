@@ -478,15 +478,24 @@ justvals_harm = wide_data_harm[,-1,]
 
 justvals_all = wide_data_all %>% ungroup() %>% dplyr::select(!c(contactname,contactid,status))
 
-  distances_all = dist(justvals_all, method = 'euclidean')
-    agglomerative_clustering_all <- hclust(distances_all, method = 'average')
-    
-        fviz_dend(agglomerative_clustering_all, cex = 0.5, k = 3, color_labels_by_k = TRUE, show_labels=TRUE)
+distances_all = dist(justvals_all, method = 'euclidean')
+
+
+agglomerative_clustering_all <- hclust(distances_all, method = 'average')
+
+
+
+colors = as.data.frame(agglomerative_clustering_all$order) 
+
+names(colors) = c("order")
+
+colors = colors %>%  dplyr::mutate(color = case_when(order <= 30 ~ "blue", order > 30 ~ 'red'))
+agglomerative_clustering_all$labels = wide_data_all$contactname
+
+fviz_dend(agglomerative_clustering_all, cex = 0.5, show_labels=TRUE,label_cols = colors$color,k=10,color_labels_by_k = TRUE)
     
         
       
-    plot(agglomerative_clustering_all,labels=paste0(wide_data_all$contactname,"_",wide_data_all$status),color="red")
-
 pca_all = prcomp(justvals_all)    
 
 wide_data_all$pc1 = pca_all$x[,1]
