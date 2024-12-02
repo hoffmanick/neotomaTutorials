@@ -91,7 +91,7 @@ library(tmap)
 
 # Our sites
 
-Our sites and cores are mapped out below.
+Our sites and cores are mapped out below. Sites and associated cores are filled with the same color. Sites have black outlines, and cores have white outlines, and if you click on a site or core its name should pop up. For those sites that are described as polygons, the point location plotted by the ```neotoma2::plotLeaflet()``` function is also rendered as a big point with a black outline.
 
 ```{r get-data, echo=FALSE, warning=FALSE}
 
@@ -203,22 +203,35 @@ pal <- colorFactor(palette = "Set1", domain = siteMetadata_df$siteid)
 polySites$arranger =  cbind( 1/as.numeric(st_area(polySites)))
 polySites = polySites %>% arrange(arranger)
 
+
+
+site_sf = as.data.frame(tanganyikaSites)[c(4,3,2,1)] %>% st_as_sf(coords=c("long","lat"), crs="WGS84")
+
+
 leaflet() %>%
   addTiles() %>%
   addPolygons(data = polySites, 
-              color = "red", 
-              weight = 2, 
+              color = "black", 
+              weight = 1, 
               fillColor = ~pal(siteid), 
               fillOpacity = 0.55, 
-              popup = ~siteid)  %>%
+              popup = ~sitename)  %>%
+    addCircleMarkers(data = site_sf, 
+                   radius = 8, 
+                   color = "black", 
+                   fillColor = ~pal(siteid), 
+                   fillOpacity = 1, 
+                   stroke = TRUE,
+                   weight = 1,
+                   popup = ~sitename) %>% 
   addCircleMarkers(data = pointSites, 
-                   radius = 5, 
+                   radius = 8, 
                    color = "black", 
                    fillColor = ~pal(siteid), 
                    fillOpacity = 0.7, 
                    stroke = TRUE, 
                    weight = 1,
-                   popup = ~siteid)   %>% 
+                   popup = ~sitename)   %>% 
   addCircleMarkers(data = filteredColl_sf, 
                    radius = 3, 
                    color = "white", 
@@ -226,25 +239,60 @@ leaflet() %>%
                    fillOpacity = 1, 
                    stroke = TRUE,
                    weight = 1,
-                   popup = ~collectionunitid)
+                   popup = ~collunitname)
 
 ```
 
 # Depths
 
+Let's compare the depths associated with the point site locations to the depths associated with the core locations. We grab all the sites from Neotoma with "Tanganyika" in their names. Then we download the sample data from all the sites just to get the elevation field, using the ```neotoma2::samples()```, ```get_downloads()```, and ```get_datasets``` functions. Then we filter just for the pollen.
+
+Meanwhile, we define the object site_sf as the point locations of our sites, and we download and filter for the relevant collection units associated with those sites. (See this [tutorial](neotomaMetadataWorkflow.html) for more detail about the collection units and site information.)
+
 ```{r depths}
 
-samps = samples(get_downloads(get_datasets(tanganyikaSites)))
+tanganyikaSites = get_sites(sitename = "%Tanganyika%")
 
-pollen = samps %>% dplyr::filter(datasettype=="pollen" & element == "pollen")
+samps = get_downloads(get_datasets(tanganyikaSites))
+
 
 site_sf = as.data.frame(tanganyikaSites)[c(4,3,2,1)] %>% st_as_sf(coords=c("long","lat"), crs="WGS84")
 
+
+
+
+text="collectionunits"
+collunits = content(GET(paste0('https://api.neotomadb.org/v2.0/data/dbtables/',text,'?count=false&limit=99999&offset=0')))$data
+
+
+
+collunit_mat = matrix(nrow=length(collunits),ncol=20)
+
+for (i in seq(length(collunits))) {
+  for (j in seq(20)) {
+    if (!is.null(collunits[[i]][[j]])) {
+      collunit_mat[[i,j]] = collunits[[i]][[j]]
+    }
+  }
+}
+
+collunit_df = collunit_mat %>% as.data.frame()
+
+names(collunit_df) = c("collectionunitid","handle","siteid","colltypeid","depenvtid","collunitname","colldate","colldevice","gpslatitude","gpslongitude","gpsaltitude","gpserror","waterdepth","substrateid","slopeaspect","slopeangle","location","notes","recdaterecreated","recdatemodified")
+
+
+filtered_colls = collunit_df %>% dplyr::filter(collectionunitid %in% siteMetadata_df$collectionunitid) 
+filteredColl_sf = collunit_df %>% dplyr::filter(collectionunitid %in% siteMetadata_df$collectionunitid) %>% st_as_sf(coords=c("gpslongitude","gpslatitude"), crs="WGS84")
+
+
+```
+
+Now that we've defined all our objects, we are going to look for all the relevant depth and elevation data. We can load up a bathymetric map of Lake Tanganyika and vectors of the depths of Lake Tanganyika provided by Mike McGlue. When we plot the bathy raster map, we get a qualitative sense of the depth profile of Lake Tanganyika, but we want actual numbers, so we need to use the depth contour vectors. Going through each site point, and then through each collection unit point, we record the depth associated with the nearest contour to a given point, as well as the distance from our site to that point, in order to have a sense of how good that depth estimate is likely to be. Then we grab the elevation (from site object) and gpsaltitude (from collectionunit object) from the Neotoma metadata and compare the answers we get.
+
+<i>Note: while creating this exercise, the Neotoma team noticed an error in the Neotoma elevation metadata and corrected it. People curate these data, which makes them high value, but sometimes people make mistakes! </i>
+``` {r bathy}
+
 bathy = stack("tanganyika_bathy.tif")
-
-
-coll_depth = raster::extract(bathy,st_coordinates(filteredColl_sf)) %>% cbind(filteredColl_sf)
-site_depth = raster::extract(bathy,st_coordinates(site_sf)) %>% cbind(site_sf)
 
 contours = st_read("TCarta_Tanganyika_contours.shp")
 
@@ -254,38 +302,35 @@ site_depths_cont = matrix(nrow=4,ncol=2)
 
 coll_depths_cont = matrix(nrow=11,ncol=2)
 
-elev_aws = get_aws_points(site_sf,z=10)
-
 
 for (i in seq(1,4)) {
   site_depths_cont[i,1] = contours[which.min(st_distance(site_sf[i,],contours)),]$ELEVATION
-  site_depths_cont[i,2] = min(st_distance(site_sf[i,],contours)) 
+  site_depths_cont[i,2] = round(min(st_distance(site_sf[i,],contours))) 
 }
 
 for (i in seq(1,11)) {
   coll_depths_cont[i,1] = contours[which.min(st_distance(filteredColl_sf[i,],contours)),]$ELEVATION
-  coll_depths_cont[i,2] = min(st_distance(filteredColl_sf[i,],contours)) 
+  coll_depths_cont[i,2] = round(min(st_distance(filteredColl_sf[i,],contours))) 
 }
 
 site_depths_cont = as.data.frame(site_depths_cont)
 
 coll_depths_cont = as.data.frame(coll_depths_cont)
 
-names(site_depths_cont) = c("depth","distance")
+names(site_depths_cont) = c("depth_site","distance_site")
 
-names(coll_depths_cont) = c("depth","distance")
+names(coll_depths_cont) = c("depth_coll","distance_coll")
 
 coll_depths_cont = coll_depths_cont %>% cbind(filteredColl_sf)
 
 site_depths_cont = site_depths_cont %>% cbind(site_sf)
 
-print(coll_depth)
-print(site_depth)
+
+depths_all = as.data.frame(samps) %>% left_join(coll_depths_cont,by=join_by("siteid" == "siteid")) %>%  left_join(site_depths_cont,by=join_by("siteid" == "siteid")) %>% dplyr::select(siteid,collectionunitid,depth_site,distance_site, depth_coll,distance_coll, elev,gpsaltitude,location)
 
 
-fromneo = pollen %>% group_by(siteid,collunitid) %>% distinct(elev)
-print(fromneo)
-filteredColl_sf[c(1,6,9)]
+datatable(depths_all,rownames=FALSE)
+
 ```
 
 # Sedge abundance
@@ -295,57 +340,57 @@ filteredColl_sf[c(1,6,9)]
 
 
 
-toptaxa = pollen %>% group_by(variablename) %>% count() %>% arrange(desc(n)) %>% head(n=6)
+#toptaxa = pollen %>% group_by(variablename) %>% count() %>% arrange(desc(n)) %>% head(n=6)
 
-count_coll = pollen %>% dplyr::filter(variablename %in% toptaxa$variablename) %>% dplyr::select(collunitid,age,variablename,value) %>%
-  group_by(collunitid,age) %>% 
-  dplyr::mutate(pollcount = sum(value, na.rm=TRUE)) %>%
-  ungroup() %>%
-  group_by(collunitid,age,variablename) %>%
-  mutate(sum_poll = sum(value,na.rm=TRUE)) %>%
-  ungroup() %>%
-  group_by(variablename) %>%
-  mutate(prop = sum_poll / pollcount) %>%
-  dplyr::select(collunitid, age, variablename, prop) %>% 
-  mutate(prop = as.numeric(prop)) %>%
-  drop_na(age) %>% 
-  distinct()
+#count_coll = pollen %>% dplyr::filter(variablename %in% toptaxa$variablename) %>% dplyr::select(collunitid,age,variablename,value) %>%
+#  group_by(collunitid,age) %>% 
+#  dplyr::mutate(pollcount = sum(value, na.rm=TRUE)) %>%
+#  ungroup() %>%
+#  group_by(collunitid,age,variablename) %>%
+#  mutate(sum_poll = sum(value,na.rm=TRUE)) %>%
+#  ungroup() %>%
+#  group_by(variablename) %>%
+#  mutate(prop = sum_poll / pollcount) %>%
+#  dplyr::select(collunitid, age, variablename, prop) %>% 
+#  mutate(prop = as.numeric(prop)) %>%
+#  drop_na(age) %>% 
+#  distinct()
 
-counts_coll = tidyr::pivot_wider(count_coll,
-                             id_cols = c(age,collunitid),
-                             names_from = variablename,
-                             values_from = prop,
-                             values_fill = 0)
-
-
-counts_coll = counts_coll %>% left_join(filtered_colls, by = join_by(collunitid == collectionunitid))
-
-count_site = pollen %>% dplyr::filter(variablename %in% toptaxa$variablename) %>% dplyr::select(siteid,age,variablename,value) %>% 
-  group_by(siteid,age) %>% 
-  dplyr::mutate(pollcount = sum(value, na.rm=TRUE)) %>%
-  ungroup() %>%
-  group_by(siteid,age,variablename) %>%
-  mutate(sum_poll = sum(value,na.rm=TRUE)) %>%
-  ungroup() %>%
-  group_by(variablename) %>%
-  mutate(prop = sum_poll / pollcount) %>%
-  dplyr::select(siteid, age, variablename, prop) %>% 
-  mutate(prop = as.numeric(prop)) %>%
-  drop_na(age) %>% 
-  distinct()
-
-counts_site = tidyr::pivot_wider(count_site,
-                             id_cols = c(age,siteid),
-                             names_from = variablename,
-                             values_from = prop,
-                             values_fill = 0)
+#counts_coll = tidyr::pivot_wider(count_coll,
+#                             id_cols = c(age,collunitid),
+#                             names_from = variablename,
+#                             values_from = prop,
+#                             values_fill = 0)
 
 
-counts_site = counts_site %>% left_join(as.data.frame(tanganyikaSites), by=join_by(siteid==siteid))
+#counts_coll = counts_coll %>% left_join(filtered_colls, by = join_by(collunitid == collectionunitid))
+
+#count_site = pollen %>% dplyr::filter(variablename %in% toptaxa$variablename) %>% dplyr::select(siteid,age,variablename,value) %>% 
+#  group_by(siteid,age) %>% 
+#  dplyr::mutate(pollcount = sum(value, na.rm=TRUE)) %>%
+#  ungroup() %>%
+#  group_by(siteid,age,variablename) %>%
+#  mutate(sum_poll = sum(value,na.rm=TRUE)) %>%
+#  ungroup() %>%
+#  group_by(variablename) %>%
+#  mutate(prop = sum_poll / pollcount) %>%
+#  dplyr::select(siteid, age, variablename, prop) %>% 
+#  mutate(prop = as.numeric(prop)) %>%
+#  drop_na(age) %>% 
+#  distinct()
+
+#counts_site = tidyr::pivot_wider(count_site,
+#                             id_cols = c(age,siteid),
+#                             names_from = variablename,
+#                             values_from = prop,
+#                             values_fill = 0)
 
 
-counts_coll = counts_coll %>% dplyr::mutate(gpslatitude = round(as.numeric(gpslatitude),6))
-counts_coll = counts_coll %>% dplyr::mutate(gpslongitude = round(as.numeric(gpslongitude),6))
+#counts_site = counts_site %>% left_join(as.data.frame(tanganyikaSites), by=join_by(siteid==siteid))
+
+
+#counts_coll = counts_coll %>% dplyr::mutate(gpslatitude = #round(as.numeric(gpslatitude),6))
+#counts_coll = counts_coll %>% dplyr::mutate(gpslongitude = round(as.numeric(gpslongitude),6))
 
 
 #clim2 <- geodata::worldclim_global(var = 'bio', res = 0.5, path=tempdir())
@@ -356,72 +401,72 @@ counts_coll = counts_coll %>% dplyr::mutate(gpslongitude = round(as.numeric(gpsl
 
 
 
-lats = c(-3,-3,-9,-9) %>% as.data.frame()
-lons = c(28,32,28,32) %>% as.data.frame()
+#lats = c(-3,-3,-9,-9) %>% as.data.frame()
+#lons = c(28,32,28,32) %>% as.data.frame()
 
-coordinates = lats %>% cbind(lons) 
-names(coordinates) = c("lat","lon")
+#coordinates = lats %>% cbind(lons) 
+#names(coordinates) = c("lat","lon")
 
-coordinates = coordinates %>% st_as_sf(coords=c("lon","lat"), crs="WGS84") %>% mutate(dummyID = 1) %>% group_by(dummyID) %>% dplyr::summarize() %>% st_cast("POLYGON")
+#coordinates = coordinates %>% st_as_sf(coords=c("lon","lat"), crs="WGS84") %>% mutate(dummyID = 1) %>% group_by(dummyID) %>% dplyr::summarize() %>% st_cast("POLYGON")
 
 #lc_tree_raster <- raster("lc_eraster.tif")
 
 #lc_grass_raster <- raster("lc_grass_raster.tif")
 
-clim30_subset=stack("clim30_subset.tif")
+#clim30_subset=stack("clim30_subset.tif")
 
 #coll_map = raster::extract(clim30_12,st_coordinates(filteredColl_sf))
 #site_map = raster::extract(clim30_12,as.data.frame(tanganyikaSites)[c(4,3)])
 
 
 
-coll_bioclim = raster::extract(clim30_subset,st_coordinates(filteredColl_sf)) %>% cbind(filteredColl_sf)
-site_bioclim = raster::extract(clim30_subset,as.data.frame(tanganyikaSites)[c(4,3)]) %>% cbind(as.data.frame(tanganyikaSites))
+#coll_bioclim = raster::extract(clim30_subset,st_coordinates(filteredColl_sf)) %>% cbind(filteredColl_sf)
+#site_bioclim = raster::extract(clim30_subset,as.data.frame(tanganyikaSites)[c(4,3)]) %>% cbind(as.data.frame(tanganyikaSites))
 
 
 
-counts_site_young = counts_site %>% group_by(siteid) %>% dplyr::filter(age == min(age)) %>% left_join(site_bioclim)
-counts_coll_young =  counts_coll %>% group_by(collunitid) %>% dplyr::filter(age == min(age)) %>% left_join(coll_bioclim)
+#counts_site_young = counts_site %>% group_by(siteid) %>% dplyr::filter(age == min(age)) %>% left_join(site_bioclim)
+#counts_coll_young =  counts_coll %>% group_by(collunitid) %>% dplyr::filter(age == min(age)) %>% left_join(coll_bioclim)
 
 
-names(counts_coll_young) = c("age","collunitid","Olea capensis","Brachystegia","Alchornea","Podocarpus","Cyperaceae","Poaceae","handle","siteid","colltypeid","depenvtid","collunitname","colldate","colldevice","lat","lon","altitude","gpserror","waterdepth","substrateid","slopeaspect","slopeangle","location","notes","datecreated","datemodified","bio1","bio2","bio3","bio4","bio5","bio6","bio7","bio8","bio9","bio10","bio11","bio12","bio13","bio14","bio15","bio16","bio17","bio18","bio19","collectionunitid","geometry")
+#names(counts_coll_young) = c("age","collunitid","Olea capensis","Brachystegia","Alchornea","Podocarpus","Cyperaceae","Poaceae","handle","siteid","colltypeid","depenvtid","collunitname","colldate","colldevice","lat","lon","altitude","gpserror","waterdepth","substrateid","slopeaspect","slopeangle","location","notes","datecreated","datemodified","bio1","bio2","bio3","bio4","bio5","bio6","bio7","bio8","bio9","bio10","bio11","bio12","bio13","bio14","bio15","bio16","bio17","bio18","bio19","collectionunitid","geometry")
 
-names(counts_site_young) = c("age","siteid","Olea capensis","Brachystegia","Alchornea","Podocarpus","Cyperaceae","Poaceae","sitename", "lat","lon","area","notes","description","elev","bio1","bio2","bio3","bio4","bio5","bio6","bio7","bio8","bio9","bio10","bio11","bio12","bio13","bio14","bio15","bio16","bio17","bio18","bio19")
+#names(counts_site_young) = c("age","siteid","Olea capensis","Brachystegia","Alchornea","Podocarpus","Cyperaceae","Poaceae","sitename", "lat","lon","area","notes","description","elev","bio1","bio2","bio3","bio4","bio5","bio6","bio7","bio8","bio9","bio10","bio11","bio12","bio13","bio14","bio15","bio16","bio17","bio18","bio19")
 
-names(clim30_subset) = c("bio1","bio2","bio3","bio4","bio5","bio6","bio7","bio8","bio9","bio10","bio11","bio12","bio13","bio14","bio15","bio16","bio17","bio18","bio19")
+#names(clim30_subset) = c("bio1","bio2","bio3","bio4","bio5","bio6","bio7","bio8","bio9","bio10","bio11","bio12","bio13","bio14","bio15","bio16","bio17","bio18","bio19")
 
 ## 11 vars is fast
 ## 15 takes 4 or 5 minutes - alg didn't converge
 
 
-coll_mod = glm(Cyperaceae ~ (bio1 + bio2 + bio3 + bio4 + bio5 + bio6 + bio7 + bio8 + bio9 + bio10+ bio11+ bio12+ bio13+ bio14 + bio15 + bio16 + bio17 + bio18 + bio19)^2, data=counts_coll_young)
+#coll_mod = glm(Cyperaceae ~ (bio1 + bio2 + bio3 + bio4 + bio5 + bio6 + bio7 + bio8 + bio9 + bio10+ bio11+ bio12+ bio13+ bio14 + bio15 + bio16 + bio17 + bio18 + bio19)^2, data=counts_coll_young)
 
-coll_step = step(coll_mod)
-
-
-site_mod = glm(Cyperaceae ~ (bio1 + bio2 + bio3 + bio4 + bio5 + bio6 + bio7+ bio8+ bio9+ bio10+ bio11+ bio12+ bio13+ bio14 + bio15 + bio16 + bio17 + bio18 + bio19)^2, data=counts_site_young)
-
-site_step = step(site_mod)
+#coll_step = step(coll_mod)
 
 
-coll_pred = predict(clim30_subset,model=coll_step)
+#site_mod = glm(Cyperaceae ~ (bio1 + bio2 + bio3 + bio4 + bio5 + bio6 + bio7+ bio8+ bio9+ bio10+ bio11+ bio12+ bio13+ bio14 + bio15 + bio16 + bio17 + bio18 + bio19)^2, data=counts_site_young)
+
+#site_step = step(site_mod)
 
 
-site_pred = predict(clim30_subset,model=site_step)
-
-difference = coll_pred - site_pred
+#coll_pred = predict(clim30_subset,model=coll_step)
 
 
+#site_pred = predict(clim30_subset,model=site_step)
 
-min_val <- minValue(difference)
-max_val <- maxValue(difference)
-breaks <- seq((0-max(max_val,(0-min_val))),max(max_val,(0-min_val)),length.out=100)
+#difference = coll_pred - site_pred
 
-color_palette <- colorRampPalette(c("blue", "white", "red"))(99)
 
-plot(coll_pred)
-plot(site_pred)
-plot(difference, col=color_palette,breaks=breaks)
+
+#min_val <- minValue(difference)
+#max_val <- maxValue(difference)
+#breaks <- seq((0-max(max_val,(0-min_val))),max(max_val,(0-min_val)),length.out=100)
+
+#color_palette <- colorRampPalette(c("blue", "white", "red"))(99)
+
+#plot(coll_pred)
+#plot(site_pred)
+#plot(difference, col=color_palette,breaks=breaks)
 
 
 ## all equal 0
@@ -433,72 +478,72 @@ plot(difference, col=color_palette,breaks=breaks)
 
 #depth_raster = get_aws_terrain(coordinates,prj=st_crs(coordinates),z=5)
 
-depth_raster = raster("depth_raster.tif")
-site_depth = raster::extract(depth_raster,as.data.frame(tanganyikaSites)[c(4,3)])
+#depth_raster = raster("depth_raster.tif")
+#site_depth = raster::extract(depth_raster,as.data.frame(tanganyikaSites)[c(4,3)])
 
 
 
-site_sf = counts_site %>% st_as_sf(coords=c("long","lat"),crs="WGS84") %>% dplyr::select(siteid) %>% distinct()
+#site_sf = counts_site %>% st_as_sf(coords=c("long","lat"),crs="WGS84") %>% dplyr::select(siteid) %>% distinct()
 
 
-buffer_radius <- 25000  # Radius in meters
-coll_circle <- st_buffer(filteredColl_sf, dist = buffer_radius)
-site_circle <- st_buffer(site_sf, dist = buffer_radius)
+#buffer_radius <- 25000  # Radius in meters
+#coll_circle <- st_buffer(filteredColl_sf, dist = buffer_radius)
+#site_circle <- st_buffer(site_sf, dist = buffer_radius)
 
 
-extent_region <- extent(coordinates) # Replace with your area coordinates
+#extent_region <- extent(coordinates) # Replace with your area coordinates
 
-grass_lc_subset = raster("grass_lc_subset.tif")
+#grass_lc_subset = raster("grass_lc_subset.tif")
 
 
-tm_shape(grass_lc_subset) + tm_raster(style="cont") + 
-    tm_shape(filteredColl_sf) + tm_dots(col="red",size=0.5,alpha=0.5) +
-    tm_shape(site_sf) + tm_dots(col="black",size=0.5,alpha=0.5) +
-    tm_shape(coll_circle) + tm_borders(col="red",alpha=0.5) +
-    tm_shape(site_circle) + tm_borders(col="black",alpha=0.5)
+#tm_shape(grass_lc_subset) + tm_raster(style="cont") + 
+ #   tm_shape(filteredColl_sf) + tm_dots(col="red",size=0.5,alpha=0.5) +
+ #   tm_shape(site_sf) + tm_dots(col="black",size=0.5,alpha=0.5) +
+#    tm_shape(coll_circle) + tm_borders(col="red",alpha=0.5) +
+ #   tm_shape(site_circle) + tm_borders(col="black",alpha=0.5)
 
 
 
 # Function to crop, mask, and calculate mean for each polygon
-calculate_mean_grass <- function(poly) {
-  cropped <- raster::crop(grass_lc_subset, as_Spatial(poly))          # Crop to bounding box
-  masked <- raster::mask(cropped, as_Spatial(poly))               # Mask to polygon shape
-  mean_val <- cellStats(masked, stat = 'mean', na.rm = TRUE)  # Calculate mean
-  return(mean_val)
-}
+#calculate_mean_grass <- function(poly) {
+ # cropped <- raster::crop(grass_lc_subset, as_Spatial(poly))          # Crop to bounding box
+  #masked <- raster::mask(cropped, as_Spatial(poly))               # Mask to polygon shape
+  #mean_val <- cellStats(masked, stat = 'mean', na.rm = TRUE)  # Calculate mean
+#  return(mean_val)
+#}
 
 
 
 
-mean_coll_grass <- lapply(1:nrow(coll_circle), function(i) calculate_mean_grass(coll_circle[i, ]))
-mean_coll_grass <- unlist(mean_coll_grass)  # Convert to numeric vector if needed
+#mean_coll_grass <- lapply(1:nrow(coll_circle), function(i) calculate_mean_grass(coll_circle[i, ]))
+#mean_coll_grass <- unlist(mean_coll_grass)  # Convert to numeric vector if needed
 
 
-mean_site_grass <- lapply(1:nrow(site_circle), function(i) calculate_mean_grass(site_circle[i, ]))
-mean_site_grass <- unlist(mean_site_grass)  # Convert to numeric vector if needed
-
-
-
-coll_circle = coll_circle %>% cbind(mean_coll_grass)
-
-site_circle = site_circle %>% cbind(mean_site_grass)
+#mean_site_grass <- lapply(1:nrow(site_circle), function(i) calculate_mean_grass(site_circle[i, ]))
+#mean_site_grass <- unlist(mean_site_grass)  # Convert to numeric vector if needed
 
 
 
-counts_coll = counts_coll %>% dplyr::left_join(coll_circle, by=join_by(collunitid == collectionunitid)) 
+#coll_circle = coll_circle %>% cbind(mean_coll_grass)
 
-counts_site = counts_site %>% dplyr::left_join(site_circle, by=join_by(siteid == siteid)) 
+#site_circle = site_circle %>% cbind(mean_site_grass)
 
 
-counts_coll_young = counts_coll %>% dplyr::filter(age <100) %>% pivot_longer(cols=c("Olea capensis","Brachystegia","Alchornea","Podocarpus","Cyperaceae","Poaceae"),names_to="taxon",values_to="percent")
-counts_site_young = counts_site  %>% dplyr::filter(age <100) %>% pivot_longer(cols=c("Olea capensis","Brachystegia","Alchornea","Podocarpus","Cyperaceae","Poaceae"),names_to="taxon",values_to="percent")
 
-ggplot() +
-  geom_point(data = counts_coll_young, mapping=aes(x=mean_coll_grass,y=percent),col="red") +
+#counts_coll = counts_coll %>% dplyr::left_join(coll_circle, by=join_by(collunitid == collectionunitid)) 
+
+#counts_site = counts_site %>% dplyr::left_join(site_circle, by=join_by(siteid == siteid)) 
+
+
+#counts_coll_young = counts_coll %>% dplyr::filter(age <100) %>% pivot_longer(cols=c("Olea capensis","Brachystegia","Alchornea","Podocarpus","Cyperaceae","Poaceae"),names_to="taxon",values_to="percent")
+#counts_site_young = counts_site  %>% dplyr::filter(age <100) %>% pivot_longer(cols=c("Olea capensis","Brachystegia","Alchornea","Podocarpus","Cyperaceae","Poaceae"),names_to="taxon",values_to="percent")
+
+#ggplot() +
+ # geom_point(data = counts_coll_young, mapping=aes(x=mean_coll_grass,y=percent),col="red") +
  # geom_smooth(data = counts_coll_young, mapping=aes(x=mean_coll_grass,y=percent),col="red") +
-  geom_point(data = counts_site_young, mapping=aes(x=mean_site_grass,y=percent),col="blue") +
+#  geom_point(data = counts_site_young, mapping=aes(x=mean_site_grass,y=percent),col="blue") +
   # geom_smooth(data = counts_site_young, mapping=aes(x=mean_site_grass,y=percent),col="blue") +
-  facet_wrap(~taxon,scales="free")
+ # facet_wrap(~taxon,scales="free")
 
 
 ```
