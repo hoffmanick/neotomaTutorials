@@ -99,6 +99,7 @@ library(tmap)
 library(rosm)
 library(osmdata)
 library(DT)
+library(plotly)
 ```
 
 We make a bounding box that encompasses all of Africa. Then we grab all Neotoma sites from that box, and filter for just those datasetids that concern pollen. Then we use the Neotoma2 package to download all of those pollen data.
@@ -271,7 +272,7 @@ ggplot() +
 
 # Pollen Analyst Comparison 
 
-Part of the reason there is so much variation in taxon naming is because it is difficult to be completely consistent from person to person and lab to lab. This is another key reason why harmonization matters In this section, we'll compare the taxonomic systems of pollen analysts working near each other.
+Part of the reason there is so much variation in taxon naming is because it is difficult to be completely consistent from person to person and lab to lab. This is another key reason why harmonization matters In this section, we'll compare the taxonomic systems of pollen analysts working near each other through a principal components analysis (PCA).
 
 First we'll grab the entire sampleanalysts table from Neotoma and filter for those pollen analysts who counted pollen from Africa. Then we'll join our table of contacts to our data by siteid.
 
@@ -306,83 +307,25 @@ filtered_an = analyst_df %>% dplyr::filter(sampleid %in% distinct_samples$sample
 
 ``` {r nextwel, warning = FALSE, message = FALSE}
 
-#Next, we'll map where these analysts worked, so that we #can compare some who work near each other.
-
-merger = filtered_an %>% left_join(data) %>% group_by(siteid) %>% summarize(siteid=siteid, lat=lat,long=long,contactid=contactid) %>% distinct() %>% st_as_sf(coords=c("long","lat"), crs="WGS84")
-
-
-#pal <- colorFactor(palette = "Set1", domain = merger$contactid)
-
-
-#leaflet() %>%
-#  addTiles() %>%
-#  addCircleMarkers(data = merger, 
-#                   radius = 5, 
-#                   color = ~pal(contactid), 
-#                   fillColor = ~pal(contactid), 
-#                   fillOpacity = 0.7, 
-#                   stroke = FALSE, 
-#                   popup = ~contactid)
+merger = filtered_an %>% left_join(data) %>% group_by(siteid) %>% summarize(siteid=siteid, lat=lat,long=long,contactid=contactid) %>% distinct() %>% st_as_sf(coords=c("long","lat"), crs="WGS84") %>% ungroup()
 
 ```
 
-
-
-``` {r lastl, warning = FALSE, message = FALSE}
-#Lastly, we'll do a few comparisons of people who worked near each other. Notice how the most abundant taxa for one analyst may be entirely missing for the other. This may be because they simply are naming the same plant taxa differently. 
-
-#picks = merger %>% dplyr::filter(contactid %in% c("1022","15804"))
-
-#people = content(GET("https://api.neotomadb.org/v1.5/data/contacts/1022,15804"))$data
-
-#comparison = data %>% dplyr::filter(siteid %in% picks$siteid) %>% left_join(picks) %>% group_by(contactid,variablename) %>% count() %>% pivot_wider(names_from = contactid,values_from=n)
-
-#datatable(comparison,rownames=FALSE)
-
-
-#picks2 = merger %>% dplyr::filter(contactid %in% c("16030","16095"))
-
-#people2 = content(GET("https://api.neotomadb.org/v1.5/data/contacts/16030,16095"))$data
-
-#comparison2 = data %>% dplyr::filter(siteid %in% picks2$siteid) %>% left_join(picks2) %>% group_by(contactid,variablename) %>% count() %>% pivot_wider(names_from = contactid,values_from=n)
-
-#datatable(comparison2,rownames=FALSE)
-
-
-
-
-#picks3 = merger %>% dplyr::filter(contactid %in% c("17668","262"))
-
-#people3 = content(GET("https://api.neotomadb.org/v1.5/data/contacts/17668,262"))$data
-
-#comparison3 = data %>% dplyr::filter(siteid %in% picks3$siteid) %>% left_join(picks3) %>% group_by(contactid,variablename) %>% count() %>% pivot_wider(names_from = contactid,values_from=n)
-
-#datatable(comparison3,rownames=FALSE)
-
-```
-
-We're going to do cluster and principal components analyses on our pollen data to see how much distance is engendered by different taxonomic naming practices. We'll filter our new table for just those sites in eastern Africa, so that all the sites we look at will have relatively similar ecologies, and any differences we among analysts will be more likely to derive from different ways of naming.
-
-We pivot our data table wider, making a table where each row corresponds to a particular analyst, and each column to a taxon name. We give a value of 1 to taxa names used by an analyst, and 0 to ones not used by an analyst. Then we cluster with the agglomerative ```hclust()``` method and use prcomp() to make a PCA. 
+We'll filter our new table for just those sites in eastern Africa, so that all the sites we look at will have relatively similar ecology, and any differences we among analysts will be more likely to derive from different ways of naming.
 
 ```{r clusterpollenanalyst}
 
 lats = c(-16, -16, 16, 16)
 lons = c(26, 40, 40, 26) # Reordered for a rectangle
 
-# Create a data frame with coordinates
 coordinates = data.frame(lat = lats, lon = lons)
 
-# Convert to sf object and create a polygon
 coordinates_sf = coordinates %>%
   st_as_sf(coords = c("lon", "lat"), crs = 4326) %>%
   summarise(geometry = st_combine(geometry)) %>%
   st_cast("POLYGON")
 
-# Plot to check
 
-
-merger = ungroup(merger)
 merger_east = st_filter(merger,coordinates_sf)
 
 tm_shape(osm.raster(coordinates_sf)) +
@@ -392,39 +335,12 @@ tm_shape(osm.raster(coordinates_sf)) +
   tm_shape(merger_east) +
   tm_dots(col="contactid",size=0.5)
 
-wide_data = data %>% dplyr::filter(siteid %in% merger_east$siteid) %>% left_join(merger) %>%  left_join(apd_harmTable, by=join_by(variablename == Taxon..original.name.)) %>% dplyr::filter(!is.na(Taxon..revised.nomenclature.)) %>% 
-  group_by(contactid,variablename) %>% count() %>% pivot_wider(id_cols = contactid, names_from = variablename, values_from = n, values_fill = 0) 
-
-wide_data[,-1][wide_data[,-1] !=0 ] = 1
-
-library(factoextra)
-#library(mclust)
-library(cluster)
-
-
-
-
-allpeople = content(GET(paste0("https://api.neotomadb.org/v1.5/data/contacts/",paste0(wide_data[[1]],collapse=","))))$data
-
-people_mat = matrix(nrow=length(allpeople),ncol=2)
-
-for (i in seq(length(allpeople))) {
-  if(!is.null(allpeople[[i]]$contactname)) {
-    people_mat[i,1] = allpeople[[i]]$contactname
-  }
-    if(!is.null(allpeople[[i]]$contactid)) {
-    people_mat[i,2] = allpeople[[i]]$contactid
-  }
-}
-
-
-people_df = as.data.frame(people_mat)
-names(people_df) = c("contactname","contactid")
-
-
 ```
 
-Now we repeat our analysis, except that instead of using the original taxa names provided by analysts, we use the recommended nomenclature from the APD. We should see the points converge somehow. In at least one sense, they do: the original wide table has 1452 column names representing different taxa, while the harmonized wide table has only 817 variables representing different taxa. [But other evidence of convergence is hard to see ??]
+
+We pivot our data table wider, making a table where each row corresponds to a particular analyst, and each column to a taxon name. We give a value of 1 to taxa names used by an analyst, and 0 to ones not used by an analyst. Then we use ```prcomp()``` to make a PCA. First we do this using the unharmonized names supplied by the original pollen analysts, and then we repeat the operation, this time using the recommended nomenclature from the APD.
+
+In order to visualize all of these points in the same space of all the possible names an analyst might have applied or been recommended to apply by the APD, we need to combine our two tables (wide_data and wide_data_harm), which requires a bit of data wrangling. We have to add columns to each table of all the non-overlapping names from the other table, and fill those new columns with a value of 0, before we combine our two tables into wide_data_all. Finally, we can perform a pca on the resulting table without the contactids (justvals_all) using ```prcomp()```. In our resulting table, we see positive evidence that harmonization leads to tighter grouping of the kinds of names people use to describe their pollen. We can also check out which taxa names have the most effect on causing a person's vocabulary to be placed where it is along PCs 1 and 2.
 
 ``` {r more-granular}
 
@@ -437,11 +353,7 @@ wide_data[,-1][wide_data[,-1] !=0 ] = 1
 
 wide_data_harm = data %>% dplyr::filter(siteid %in% merger_east$siteid) %>% left_join(merger) %>% left_join(apd_harmTable, by=join_by(variablename == Taxon..original.name.)) %>% dplyr::filter(!is.na(Taxon..revised.nomenclature.)) %>% group_by(contactid,Taxon..revised.nomenclature.) %>% count() %>% pivot_wider(id_cols = contactid, names_from = Taxon..revised.nomenclature., values_from = n, values_fill = 0) 
 
-
-
-
 wide_data_harm[,-1][wide_data_harm[,-1] !=0 ] = 1
-
 
 
 
@@ -464,38 +376,13 @@ wide_data_harm = wide_data_harm %>% cbind(added_part_harm)
 wide_data = wide_data %>% cbind(added_part_noharm)
 
 
-wide_data_harm = wide_data_harm %>% left_join(people_df)
-wide_data = wide_data %>% left_join(people_df)
-
-
 wide_data = wide_data %>% mutate(status = "noharm")
 wide_data_harm = wide_data_harm %>% mutate(status="harm")
 
 wide_data_all = rbind(wide_data,wide_data_harm)
 
-justvals_harm = wide_data_harm[,-1,]
+justvals_all = wide_data_all %>% ungroup() %>% dplyr::select(!c(contactid,status))
 
-
-justvals_all = wide_data_all %>% ungroup() %>% dplyr::select(!c(contactname,contactid,status))
-
-distances_all = dist(justvals_all, method = 'euclidean')
-
-
-agglomerative_clustering_all <- hclust(distances_all, method = 'average')
-
-
-
-colors = as.data.frame(agglomerative_clustering_all$order) 
-
-names(colors) = c("order")
-
-colors = colors %>%  dplyr::mutate(color = case_when(order <= 30 ~ "blue", order > 30 ~ 'red'))
-agglomerative_clustering_all$labels = wide_data_all$contactname
-
-fviz_dend(agglomerative_clustering_all, cex = 0.5, show_labels=TRUE,label_cols = colors$color,k=10,color_labels_by_k = TRUE)
-    
-        
-      
 pca_all = prcomp(justvals_all)    
 
 wide_data_all$pc1 = pca_all$x[,1]
@@ -503,13 +390,11 @@ wide_data_all$pc2 = pca_all$x[,2]
 
 
 pcaplot = ggplot(wide_data_all) + 
-  geom_point(mapping=aes(x=pc1,y=pc2,color=status,group=contactname)) +
-  geom_text(mapping=aes(x=(pc1+0.5),y=(pc2-0.5),label=contactname,color=status)) +
+  geom_point(mapping=aes(x=pc1,y=pc2,color=status)) +
   labs(x = "PC1 (18.1%)", y = "PC2 (12.2%)") +
   theme_bw()
 
 
-library(plotly)
 ggplotly(pcaplot)
 
 #pc1 biggest loadings

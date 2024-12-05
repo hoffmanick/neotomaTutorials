@@ -302,6 +302,7 @@ site_depths_cont = matrix(nrow=4,ncol=2)
 
 coll_depths_cont = matrix(nrow=11,ncol=2)
 
+test = st_join(bathy,contours)
 
 for (i in seq(1,4)) {
   site_depths_cont[i,1] = contours[which.min(st_distance(site_sf[i,],contours)),]$ELEVATION
@@ -330,6 +331,16 @@ depths_all = as.data.frame(samps) %>% left_join(coll_depths_cont,by=join_by("sit
 
 
 datatable(depths_all,rownames=FALSE)
+
+```
+
+
+``` {r model}
+
+b_points = rasterToPoints(bathy) %>% as.data.frame() %>% st_as_sf(coords=c("x","y"),crs="WGS84")
+
+
+depth_raster = st_join(b_points,contours) %>% dplyr::filter(!is.na(ELEVATION))
 
 ```
 
