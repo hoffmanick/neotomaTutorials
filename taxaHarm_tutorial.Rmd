@@ -407,4 +407,9 @@ pca_all$rotation[,2][abs(pca_all$rotation[,2]) %in% tail(sort(abs(pca_all$rotati
 pca_all$rotation[,3][abs(pca_all$rotation[,3]) %in% tail(sort(abs(pca_all$rotation[,3])), 5)] 
 
 ```
+
+# Conclusion
+
+Taxon harmonization is a fundamental step in fossil pollen analysis. This tutorial has demonstrated the use of taxon harmonization in tracking <i>Olea capensis</i> elevation shifts over the last 20,000 years, and has shown how much more similar the vocabularies of African fossil pollen analysts become when the African Pollen Database's taxon harmonization table is applied to them.
+
 <div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
