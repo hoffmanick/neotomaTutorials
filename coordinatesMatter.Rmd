@@ -86,6 +86,7 @@ library(analogue)
 library(elevatr)
 library(raster)
 library(tmap)
+library(gstat)
 
 ```
 
@@ -302,7 +303,7 @@ site_depths_cont = matrix(nrow=4,ncol=2)
 
 coll_depths_cont = matrix(nrow=11,ncol=2)
 
-test = st_join(bathy,contours)
+#test = st_join(bathy,contours)
 
 for (i in seq(1,4)) {
   site_depths_cont[i,1] = contours[which.min(st_distance(site_sf[i,],contours)),]$ELEVATION
@@ -336,12 +337,39 @@ datatable(depths_all,rownames=FALSE)
 
 
 ``` {r model}
+#
+#b_points = rasterToPoints(bathy) %>% as.data.frame() %>% st_as_sf(coords=c("x","y"),crs="WGS84")
 
-b_points = rasterToPoints(bathy) %>% as.data.frame() %>% st_as_sf(coords=c("x","y"),crs="WGS84")
+
+#depth_raster = st_join(b_points,contours) %>% dplyr::filter(!is.na(ELEVATION))
 
 
-depth_raster = st_join(b_points,contours) %>% dplyr::filter(!is.na(ELEVATION))
 
+depth_multipoints = st_sample(contours,100000)
+
+sf_object <- st_sf(depth = contours$ELEVATION, geometry = depth_multipoints) %>% filter(!st_is_empty(geometry))
+
+idw_model <- gstat(
+  formula = depth ~ 1, # Depth is the dependent variable
+  locations = sf_object,
+  nmax = 10, # Optional: Limit to nearest neighbors
+  set = list(idp = 2) # Set power for IDW
+)
+
+# Predict at specific points
+predictions_site <- predict(idw_model, newdata = rbind(site_sf))
+
+predictions_coll <- predict(idw_model, newdata = rbind(filteredColl_sf))
+
+site_df = st_drop_geometry(site_sf) %>% cbind(predictions_site$var1.pred)
+
+coll_df = st_drop_geometry(filteredColl_sf)
+coll_df$depth_coll = (predictions_coll$var1.pred)
+names(site_df) = c("sitename","siteid","depth_site")
+
+depths_all = as.data.frame(samps) %>% left_join(coll_df,by=join_by("siteid" == "siteid")) %>%  left_join(site_df,by=join_by("siteid" == "siteid")) %>% dplyr::select(siteid,collectionunitid, elev,gpsaltitude,location,depth_site,depth_coll)
+
+datatable(depths_all,rownames=FALSE)
 ```
 
 # Sedge abundance
