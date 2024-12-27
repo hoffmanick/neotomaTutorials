@@ -1,5 +1,5 @@
 ---
-title: "Why Coordinates Matter - Demonstration"
+title: "Sites versus Cores: Depth differences"
 author: "Nick Hoffman"
 date: "`r Sys.Date()`"
 output:
@@ -68,7 +68,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Introduction
 
-This page will demonstrate one situation where the difference between site and core location coordinates matters when using paleodata from the Neotoma Paleoecology Database.
+This page will demonstrate one situation where the difference between site and core location coordinates matters when using paleodata from the Neotoma Paleoecology Database: getting sediment depths associated with locations.
 
 ```{r packages, warning=FALSE, message=FALSE,echo=FALSE}
 
@@ -246,11 +246,11 @@ leaflet() %>%
 
 # Depths
 
-Let's compare the depths associated with the point site locations to the depths associated with the core locations. We grab all the sites from Neotoma with "Tanganyika" in their names. Then we download the sample data from all the sites just to get the elevation field, using the ```neotoma2::samples()```, ```get_downloads()```, and ```get_datasets``` functions. Then we filter just for the pollen.
+Let's compare the depths associated with the point site locations to the depths associated with the core locations. We grab all the sites from Neotoma with "Tanganyika" in their names. Then we download the sample data from all the sites just to get the elevation field, using the ```neotoma2::samples()```, ```get_downloads()```, and ```get_datasets()``` functions.
 
 Meanwhile, we define the object site_sf as the point locations of our sites, and we download and filter for the relevant collection units associated with those sites. (See this [tutorial](neotomaMetadataWorkflow.html) for more detail about the collection units and site information.)
 
-```{r depths}
+```{r depths, message=FALSE}
 
 tanganyikaSites = get_sites(sitename = "%Tanganyika%")
 
@@ -288,9 +288,9 @@ filteredColl_sf = collunit_df %>% dplyr::filter(collectionunitid %in% siteMetada
 
 ```
 
-Now that we've defined all our objects, we are going to look for all the relevant depth and elevation data. We can load up a bathymetric map of Lake Tanganyika and vectors of the depths of Lake Tanganyika provided by Mike McGlue. When we plot the bathy raster map, we get a qualitative sense of the depth profile of Lake Tanganyika, but we want actual numbers, so we need to use the depth contour vectors. Going through each site point, and then through each collection unit point, we record the depth associated with the nearest contour to a given point, as well as the distance from our site to that point, in order to have a sense of how good that depth estimate is likely to be. Then we grab the elevation (from site object) and gpsaltitude (from collectionunit object) from the Neotoma metadata and compare the answers we get.
+Now that we've defined all our objects, we are going to look for all the relevant depth and elevation data. We can load up a bathymetric map of Lake Tanganyika and vectors of the depths of Lake Tanganyika provided by Mike McGlue. When we plot the bathymetric raster map, we get a qualitative sense of the depth profile of Lake Tanganyika, but we want actual numbers, so we need to use the depth contour vectors. (The difference between raster and vector data is beyond the scope of this tutorial, but if you need a refresher, see this [page](https://gisgeography.com/spatial-data-types-vector-raster/).
 
-<i>Note: while creating this exercise, the Neotoma team noticed an error in the Neotoma elevation metadata and corrected it. People curate these data, which makes them high value, but sometimes people make mistakes! </i>
+
 ``` {r bathy}
 
 bathy = stack("tanganyika_bathy.tif")
@@ -299,51 +299,13 @@ contours = st_read("TCarta_Tanganyika_contours.shp")
 
 tm_shape(bathy[[1:3]]) + tm_rgb(r = 1, g = 2, b = 3)
 
-site_depths_cont = matrix(nrow=4,ncol=2)
-
-coll_depths_cont = matrix(nrow=11,ncol=2)
-
-#test = st_join(bathy,contours)
-
-for (i in seq(1,4)) {
-  site_depths_cont[i,1] = contours[which.min(st_distance(site_sf[i,],contours)),]$ELEVATION
-  site_depths_cont[i,2] = round(min(st_distance(site_sf[i,],contours))) 
-}
-
-for (i in seq(1,11)) {
-  coll_depths_cont[i,1] = contours[which.min(st_distance(filteredColl_sf[i,],contours)),]$ELEVATION
-  coll_depths_cont[i,2] = round(min(st_distance(filteredColl_sf[i,],contours))) 
-}
-
-site_depths_cont = as.data.frame(site_depths_cont)
-
-coll_depths_cont = as.data.frame(coll_depths_cont)
-
-names(site_depths_cont) = c("depth_site","distance_site")
-
-names(coll_depths_cont) = c("depth_coll","distance_coll")
-
-coll_depths_cont = coll_depths_cont %>% cbind(filteredColl_sf)
-
-site_depths_cont = site_depths_cont %>% cbind(site_sf)
-
-
-depths_all = as.data.frame(samps) %>% left_join(coll_depths_cont,by=join_by("siteid" == "siteid")) %>%  left_join(site_depths_cont,by=join_by("siteid" == "siteid")) %>% dplyr::select(siteid,collectionunitid,depth_site,distance_site, depth_coll,distance_coll, elev,gpsaltitude,location)
-
-
-datatable(depths_all,rownames=FALSE)
-
 ```
 
+To get the values of our site and collection unit points, we need to do some spatial interpolation, because the contours don't overlap our points of interest. We'll use a simple method called inverse distance-weighted spatial interpolation, implemented in the R package ```gstat```. First we get 100,000 points from our contour lines, filtering out any unsampled contour lines, and then we build our spatial interpolation model, which simply looks for the nearest neighbors of of our site and collection unit points from the points we sampled, and averages them, giving more weight to points that are closer. Finally, we use our model to predict depths based on site location and based on core location, and display them, as well as their difference, in our table below.
+
+<i>Note: while creating this exercise, the Neotoma team noticed an error in the Neotoma elevation metadata and corrected it. People curate these data, which makes them high value, but sometimes people make mistakes! </i>
 
 ``` {r model}
-#
-#b_points = rasterToPoints(bathy) %>% as.data.frame() %>% st_as_sf(coords=c("x","y"),crs="WGS84")
-
-
-#depth_raster = st_join(b_points,contours) %>% dplyr::filter(!is.na(ELEVATION))
-
-
 
 depth_multipoints = st_sample(contours,100000)
 
@@ -361,230 +323,21 @@ predictions_site <- predict(idw_model, newdata = rbind(site_sf))
 
 predictions_coll <- predict(idw_model, newdata = rbind(filteredColl_sf))
 
-site_df = st_drop_geometry(site_sf) %>% cbind(predictions_site$var1.pred)
+site_df = st_drop_geometry(site_sf) %>% cbind(round(predictions_site$var1.pred))
 
 coll_df = st_drop_geometry(filteredColl_sf)
-coll_df$depth_coll = (predictions_coll$var1.pred)
+coll_df$depth_coll = (round(predictions_coll$var1.pred))
 names(site_df) = c("sitename","siteid","depth_site")
 
 depths_all = as.data.frame(samps) %>% left_join(coll_df,by=join_by("siteid" == "siteid")) %>%  left_join(site_df,by=join_by("siteid" == "siteid")) %>% dplyr::select(siteid,collectionunitid, elev,gpsaltitude,location,depth_site,depth_coll)
 
-datatable(depths_all,rownames=FALSE)
+depths_all = depths_all %>% dplyr::mutate(depth_difference = depth_site - depth_coll)
+datatable(depths_all,rownames=FALSE, options = list(pageLength=11))
 ```
+We can see there is one case where the depth based on the collection unit is equal to the depth based on the site - but that's our one point where the site is in fact the location of a single core, so we expect that. Otherwise, there's always a difference between the purported site depth and the actual collection unit depth that can be as big as 500 m. That's a significant difference if you're interested in the aquatic ecology of the collection unit area. Also notice that when the depth is reported in the Neotoma metadata (in the location field), except for our one site where there's no difference, the core location depth is always closer to the reported depth.
 
-# Sedge abundance
+# Conclusion
 
-
-```{r exercise, message=FALSE,results='hide'}
-
-
-
-#toptaxa = pollen %>% group_by(variablename) %>% count() %>% arrange(desc(n)) %>% head(n=6)
-
-#count_coll = pollen %>% dplyr::filter(variablename %in% toptaxa$variablename) %>% dplyr::select(collunitid,age,variablename,value) %>%
-#  group_by(collunitid,age) %>% 
-#  dplyr::mutate(pollcount = sum(value, na.rm=TRUE)) %>%
-#  ungroup() %>%
-#  group_by(collunitid,age,variablename) %>%
-#  mutate(sum_poll = sum(value,na.rm=TRUE)) %>%
-#  ungroup() %>%
-#  group_by(variablename) %>%
-#  mutate(prop = sum_poll / pollcount) %>%
-#  dplyr::select(collunitid, age, variablename, prop) %>% 
-#  mutate(prop = as.numeric(prop)) %>%
-#  drop_na(age) %>% 
-#  distinct()
-
-#counts_coll = tidyr::pivot_wider(count_coll,
-#                             id_cols = c(age,collunitid),
-#                             names_from = variablename,
-#                             values_from = prop,
-#                             values_fill = 0)
-
-
-#counts_coll = counts_coll %>% left_join(filtered_colls, by = join_by(collunitid == collectionunitid))
-
-#count_site = pollen %>% dplyr::filter(variablename %in% toptaxa$variablename) %>% dplyr::select(siteid,age,variablename,value) %>% 
-#  group_by(siteid,age) %>% 
-#  dplyr::mutate(pollcount = sum(value, na.rm=TRUE)) %>%
-#  ungroup() %>%
-#  group_by(siteid,age,variablename) %>%
-#  mutate(sum_poll = sum(value,na.rm=TRUE)) %>%
-#  ungroup() %>%
-#  group_by(variablename) %>%
-#  mutate(prop = sum_poll / pollcount) %>%
-#  dplyr::select(siteid, age, variablename, prop) %>% 
-#  mutate(prop = as.numeric(prop)) %>%
-#  drop_na(age) %>% 
-#  distinct()
-
-#counts_site = tidyr::pivot_wider(count_site,
-#                             id_cols = c(age,siteid),
-#                             names_from = variablename,
-#                             values_from = prop,
-#                             values_fill = 0)
-
-
-#counts_site = counts_site %>% left_join(as.data.frame(tanganyikaSites), by=join_by(siteid==siteid))
-
-
-#counts_coll = counts_coll %>% dplyr::mutate(gpslatitude = #round(as.numeric(gpslatitude),6))
-#counts_coll = counts_coll %>% dplyr::mutate(gpslongitude = round(as.numeric(gpslongitude),6))
-
-
-#clim2 <- geodata::worldclim_global(var = 'bio', res = 0.5, path=tempdir())
-
-#lc_tree = landcover(var='trees',path=tempdir())
-#lc_grass =  landcover(var='grassland',path=tempdir())
-
-
-
-
-#lats = c(-3,-3,-9,-9) %>% as.data.frame()
-#lons = c(28,32,28,32) %>% as.data.frame()
-
-#coordinates = lats %>% cbind(lons) 
-#names(coordinates) = c("lat","lon")
-
-#coordinates = coordinates %>% st_as_sf(coords=c("lon","lat"), crs="WGS84") %>% mutate(dummyID = 1) %>% group_by(dummyID) %>% dplyr::summarize() %>% st_cast("POLYGON")
-
-#lc_tree_raster <- raster("lc_eraster.tif")
-
-#lc_grass_raster <- raster("lc_grass_raster.tif")
-
-#clim30_subset=stack("clim30_subset.tif")
-
-#coll_map = raster::extract(clim30_12,st_coordinates(filteredColl_sf))
-#site_map = raster::extract(clim30_12,as.data.frame(tanganyikaSites)[c(4,3)])
-
-
-
-#coll_bioclim = raster::extract(clim30_subset,st_coordinates(filteredColl_sf)) %>% cbind(filteredColl_sf)
-#site_bioclim = raster::extract(clim30_subset,as.data.frame(tanganyikaSites)[c(4,3)]) %>% cbind(as.data.frame(tanganyikaSites))
-
-
-
-#counts_site_young = counts_site %>% group_by(siteid) %>% dplyr::filter(age == min(age)) %>% left_join(site_bioclim)
-#counts_coll_young =  counts_coll %>% group_by(collunitid) %>% dplyr::filter(age == min(age)) %>% left_join(coll_bioclim)
-
-
-#names(counts_coll_young) = c("age","collunitid","Olea capensis","Brachystegia","Alchornea","Podocarpus","Cyperaceae","Poaceae","handle","siteid","colltypeid","depenvtid","collunitname","colldate","colldevice","lat","lon","altitude","gpserror","waterdepth","substrateid","slopeaspect","slopeangle","location","notes","datecreated","datemodified","bio1","bio2","bio3","bio4","bio5","bio6","bio7","bio8","bio9","bio10","bio11","bio12","bio13","bio14","bio15","bio16","bio17","bio18","bio19","collectionunitid","geometry")
-
-#names(counts_site_young) = c("age","siteid","Olea capensis","Brachystegia","Alchornea","Podocarpus","Cyperaceae","Poaceae","sitename", "lat","lon","area","notes","description","elev","bio1","bio2","bio3","bio4","bio5","bio6","bio7","bio8","bio9","bio10","bio11","bio12","bio13","bio14","bio15","bio16","bio17","bio18","bio19")
-
-#names(clim30_subset) = c("bio1","bio2","bio3","bio4","bio5","bio6","bio7","bio8","bio9","bio10","bio11","bio12","bio13","bio14","bio15","bio16","bio17","bio18","bio19")
-
-## 11 vars is fast
-## 15 takes 4 or 5 minutes - alg didn't converge
-
-
-#coll_mod = glm(Cyperaceae ~ (bio1 + bio2 + bio3 + bio4 + bio5 + bio6 + bio7 + bio8 + bio9 + bio10+ bio11+ bio12+ bio13+ bio14 + bio15 + bio16 + bio17 + bio18 + bio19)^2, data=counts_coll_young)
-
-#coll_step = step(coll_mod)
-
-
-#site_mod = glm(Cyperaceae ~ (bio1 + bio2 + bio3 + bio4 + bio5 + bio6 + bio7+ bio8+ bio9+ bio10+ bio11+ bio12+ bio13+ bio14 + bio15 + bio16 + bio17 + bio18 + bio19)^2, data=counts_site_young)
-
-#site_step = step(site_mod)
-
-
-#coll_pred = predict(clim30_subset,model=coll_step)
-
-
-#site_pred = predict(clim30_subset,model=site_step)
-
-#difference = coll_pred - site_pred
-
-
-
-#min_val <- minValue(difference)
-#max_val <- maxValue(difference)
-#breaks <- seq((0-max(max_val,(0-min_val))),max(max_val,(0-min_val)),length.out=100)
-
-#color_palette <- colorRampPalette(c("blue", "white", "red"))(99)
-
-#plot(coll_pred)
-#plot(site_pred)
-#plot(difference, col=color_palette,breaks=breaks)
-
-
-## all equal 0
-##coll_lc = raster::extract(lc_raster,st_coordinates(filteredColl_sf))
-##site_lc = raster::extract(lc_raster,as.data.frame(tanganyikaSites)[c(4,3)])
-## all equal 0
-#coll_grass = raster::extract(lc_grass_raster,st_coordinates(filteredColl_sf))
-#site_grass = raster::extract(lc_grass_raster,as.data.frame(tanganyikaSites)[c(4,3)])
-
-#depth_raster = get_aws_terrain(coordinates,prj=st_crs(coordinates),z=5)
-
-#depth_raster = raster("depth_raster.tif")
-#site_depth = raster::extract(depth_raster,as.data.frame(tanganyikaSites)[c(4,3)])
-
-
-
-#site_sf = counts_site %>% st_as_sf(coords=c("long","lat"),crs="WGS84") %>% dplyr::select(siteid) %>% distinct()
-
-
-#buffer_radius <- 25000  # Radius in meters
-#coll_circle <- st_buffer(filteredColl_sf, dist = buffer_radius)
-#site_circle <- st_buffer(site_sf, dist = buffer_radius)
-
-
-#extent_region <- extent(coordinates) # Replace with your area coordinates
-
-#grass_lc_subset = raster("grass_lc_subset.tif")
-
-
-#tm_shape(grass_lc_subset) + tm_raster(style="cont") + 
- #   tm_shape(filteredColl_sf) + tm_dots(col="red",size=0.5,alpha=0.5) +
- #   tm_shape(site_sf) + tm_dots(col="black",size=0.5,alpha=0.5) +
-#    tm_shape(coll_circle) + tm_borders(col="red",alpha=0.5) +
- #   tm_shape(site_circle) + tm_borders(col="black",alpha=0.5)
-
-
-
-# Function to crop, mask, and calculate mean for each polygon
-#calculate_mean_grass <- function(poly) {
- # cropped <- raster::crop(grass_lc_subset, as_Spatial(poly))          # Crop to bounding box
-  #masked <- raster::mask(cropped, as_Spatial(poly))               # Mask to polygon shape
-  #mean_val <- cellStats(masked, stat = 'mean', na.rm = TRUE)  # Calculate mean
-#  return(mean_val)
-#}
-
-
-
-
-#mean_coll_grass <- lapply(1:nrow(coll_circle), function(i) calculate_mean_grass(coll_circle[i, ]))
-#mean_coll_grass <- unlist(mean_coll_grass)  # Convert to numeric vector if needed
-
-
-#mean_site_grass <- lapply(1:nrow(site_circle), function(i) calculate_mean_grass(site_circle[i, ]))
-#mean_site_grass <- unlist(mean_site_grass)  # Convert to numeric vector if needed
-
-
-
-#coll_circle = coll_circle %>% cbind(mean_coll_grass)
-
-#site_circle = site_circle %>% cbind(mean_site_grass)
-
-
-
-#counts_coll = counts_coll %>% dplyr::left_join(coll_circle, by=join_by(collunitid == collectionunitid)) 
-
-#counts_site = counts_site %>% dplyr::left_join(site_circle, by=join_by(siteid == siteid)) 
-
-
-#counts_coll_young = counts_coll %>% dplyr::filter(age <100) %>% pivot_longer(cols=c("Olea capensis","Brachystegia","Alchornea","Podocarpus","Cyperaceae","Poaceae"),names_to="taxon",values_to="percent")
-#counts_site_young = counts_site  %>% dplyr::filter(age <100) %>% pivot_longer(cols=c("Olea capensis","Brachystegia","Alchornea","Podocarpus","Cyperaceae","Poaceae"),names_to="taxon",values_to="percent")
-
-#ggplot() +
- # geom_point(data = counts_coll_young, mapping=aes(x=mean_coll_grass,y=percent),col="red") +
- # geom_smooth(data = counts_coll_young, mapping=aes(x=mean_coll_grass,y=percent),col="red") +
-#  geom_point(data = counts_site_young, mapping=aes(x=mean_site_grass,y=percent),col="blue") +
-  # geom_smooth(data = counts_site_young, mapping=aes(x=mean_site_grass,y=percent),col="blue") +
- # facet_wrap(~taxon,scales="free")
-
-
-```
+We compared the depths associated with nominal point site locations and with actual core locations for Neotoma paleodata from Lake Tanganyika. We found that there's always a difference between the site and core location depth, confirming our intuition: we better be careful about the difference between sites and collection units in Neotoma.
 
 <div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>

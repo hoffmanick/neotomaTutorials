@@ -1,0 +1,252 @@
+---
+title: "archived coordinates matter"
+author: "Nick Hoffman"
+date: '`r Sys.Date()`'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Sedge abundance
+
+
+```{r exercise, message=FALSE,results='hide'}
+
+
+for (i in seq(1,4)) {
+  site_depths_cont[i,1] = contours[which.min(st_distance(site_sf[i,],contours)),]$ELEVATION
+  site_depths_cont[i,2] = round(min(st_distance(site_sf[i,],contours))) 
+}
+
+for (i in seq(1,11)) {
+  coll_depths_cont[i,1] = contours[which.min(st_distance(filteredColl_sf[i,],contours)),]$ELEVATION
+  coll_depths_cont[i,2] = round(min(st_distance(filteredColl_sf[i,],contours))) 
+}
+
+site_depths_cont = as.data.frame(site_depths_cont)
+
+coll_depths_cont = as.data.frame(coll_depths_cont)
+
+names(site_depths_cont) = c("depth_site","distance_site")
+
+names(coll_depths_cont) = c("depth_coll","distance_coll")
+
+coll_depths_cont = coll_depths_cont %>% cbind(filteredColl_sf)
+
+site_depths_cont = site_depths_cont %>% cbind(site_sf)
+
+
+depths_all = as.data.frame(samps) %>% left_join(coll_depths_cont,by=join_by("siteid" == "siteid")) %>%  left_join(site_depths_cont,by=join_by("siteid" == "siteid")) %>% dplyr::select(siteid,collectionunitid,depth_site,distance_site, depth_coll,distance_coll, elev,gpsaltitude,location)
+
+
+datatable(depths_all,rownames=FALSE)
+
+#toptaxa = pollen %>% group_by(variablename) %>% count() %>% arrange(desc(n)) %>% head(n=6)
+
+#count_coll = pollen %>% dplyr::filter(variablename %in% toptaxa$variablename) %>% dplyr::select(collunitid,age,variablename,value) %>%
+#  group_by(collunitid,age) %>% 
+#  dplyr::mutate(pollcount = sum(value, na.rm=TRUE)) %>%
+#  ungroup() %>%
+#  group_by(collunitid,age,variablename) %>%
+#  mutate(sum_poll = sum(value,na.rm=TRUE)) %>%
+#  ungroup() %>%
+#  group_by(variablename) %>%
+#  mutate(prop = sum_poll / pollcount) %>%
+#  dplyr::select(collunitid, age, variablename, prop) %>% 
+#  mutate(prop = as.numeric(prop)) %>%
+#  drop_na(age) %>% 
+#  distinct()
+
+#counts_coll = tidyr::pivot_wider(count_coll,
+#                             id_cols = c(age,collunitid),
+#                             names_from = variablename,
+#                             values_from = prop,
+#                             values_fill = 0)
+
+
+#counts_coll = counts_coll %>% left_join(filtered_colls, by = join_by(collunitid == collectionunitid))
+
+#count_site = pollen %>% dplyr::filter(variablename %in% toptaxa$variablename) %>% dplyr::select(siteid,age,variablename,value) %>% 
+#  group_by(siteid,age) %>% 
+#  dplyr::mutate(pollcount = sum(value, na.rm=TRUE)) %>%
+#  ungroup() %>%
+#  group_by(siteid,age,variablename) %>%
+#  mutate(sum_poll = sum(value,na.rm=TRUE)) %>%
+#  ungroup() %>%
+#  group_by(variablename) %>%
+#  mutate(prop = sum_poll / pollcount) %>%
+#  dplyr::select(siteid, age, variablename, prop) %>% 
+#  mutate(prop = as.numeric(prop)) %>%
+#  drop_na(age) %>% 
+#  distinct()
+
+#counts_site = tidyr::pivot_wider(count_site,
+#                             id_cols = c(age,siteid),
+#                             names_from = variablename,
+#                             values_from = prop,
+#                             values_fill = 0)
+
+
+#counts_site = counts_site %>% left_join(as.data.frame(tanganyikaSites), by=join_by(siteid==siteid))
+
+
+#counts_coll = counts_coll %>% dplyr::mutate(gpslatitude = #round(as.numeric(gpslatitude),6))
+#counts_coll = counts_coll %>% dplyr::mutate(gpslongitude = round(as.numeric(gpslongitude),6))
+
+
+#clim2 <- geodata::worldclim_global(var = 'bio', res = 0.5, path=tempdir())
+
+#lc_tree = landcover(var='trees',path=tempdir())
+#lc_grass =  landcover(var='grassland',path=tempdir())
+
+
+
+
+#lats = c(-3,-3,-9,-9) %>% as.data.frame()
+#lons = c(28,32,28,32) %>% as.data.frame()
+
+#coordinates = lats %>% cbind(lons) 
+#names(coordinates) = c("lat","lon")
+
+#coordinates = coordinates %>% st_as_sf(coords=c("lon","lat"), crs="WGS84") %>% mutate(dummyID = 1) %>% group_by(dummyID) %>% dplyr::summarize() %>% st_cast("POLYGON")
+
+#lc_tree_raster <- raster("lc_eraster.tif")
+
+#lc_grass_raster <- raster("lc_grass_raster.tif")
+
+#clim30_subset=stack("clim30_subset.tif")
+
+#coll_map = raster::extract(clim30_12,st_coordinates(filteredColl_sf))
+#site_map = raster::extract(clim30_12,as.data.frame(tanganyikaSites)[c(4,3)])
+
+
+
+#coll_bioclim = raster::extract(clim30_subset,st_coordinates(filteredColl_sf)) %>% cbind(filteredColl_sf)
+#site_bioclim = raster::extract(clim30_subset,as.data.frame(tanganyikaSites)[c(4,3)]) %>% cbind(as.data.frame(tanganyikaSites))
+
+
+
+#counts_site_young = counts_site %>% group_by(siteid) %>% dplyr::filter(age == min(age)) %>% left_join(site_bioclim)
+#counts_coll_young =  counts_coll %>% group_by(collunitid) %>% dplyr::filter(age == min(age)) %>% left_join(coll_bioclim)
+
+
+#names(counts_coll_young) = c("age","collunitid","Olea capensis","Brachystegia","Alchornea","Podocarpus","Cyperaceae","Poaceae","handle","siteid","colltypeid","depenvtid","collunitname","colldate","colldevice","lat","lon","altitude","gpserror","waterdepth","substrateid","slopeaspect","slopeangle","location","notes","datecreated","datemodified","bio1","bio2","bio3","bio4","bio5","bio6","bio7","bio8","bio9","bio10","bio11","bio12","bio13","bio14","bio15","bio16","bio17","bio18","bio19","collectionunitid","geometry")
+
+#names(counts_site_young) = c("age","siteid","Olea capensis","Brachystegia","Alchornea","Podocarpus","Cyperaceae","Poaceae","sitename", "lat","lon","area","notes","description","elev","bio1","bio2","bio3","bio4","bio5","bio6","bio7","bio8","bio9","bio10","bio11","bio12","bio13","bio14","bio15","bio16","bio17","bio18","bio19")
+
+#names(clim30_subset) = c("bio1","bio2","bio3","bio4","bio5","bio6","bio7","bio8","bio9","bio10","bio11","bio12","bio13","bio14","bio15","bio16","bio17","bio18","bio19")
+
+## 11 vars is fast
+## 15 takes 4 or 5 minutes - alg didn't converge
+
+
+#coll_mod = glm(Cyperaceae ~ (bio1 + bio2 + bio3 + bio4 + bio5 + bio6 + bio7 + bio8 + bio9 + bio10+ bio11+ bio12+ bio13+ bio14 + bio15 + bio16 + bio17 + bio18 + bio19)^2, data=counts_coll_young)
+
+#coll_step = step(coll_mod)
+
+
+#site_mod = glm(Cyperaceae ~ (bio1 + bio2 + bio3 + bio4 + bio5 + bio6 + bio7+ bio8+ bio9+ bio10+ bio11+ bio12+ bio13+ bio14 + bio15 + bio16 + bio17 + bio18 + bio19)^2, data=counts_site_young)
+
+#site_step = step(site_mod)
+
+
+#coll_pred = predict(clim30_subset,model=coll_step)
+
+
+#site_pred = predict(clim30_subset,model=site_step)
+
+#difference = coll_pred - site_pred
+
+
+
+#min_val <- minValue(difference)
+#max_val <- maxValue(difference)
+#breaks <- seq((0-max(max_val,(0-min_val))),max(max_val,(0-min_val)),length.out=100)
+
+#color_palette <- colorRampPalette(c("blue", "white", "red"))(99)
+
+#plot(coll_pred)
+#plot(site_pred)
+#plot(difference, col=color_palette,breaks=breaks)
+
+
+## all equal 0
+##coll_lc = raster::extract(lc_raster,st_coordinates(filteredColl_sf))
+##site_lc = raster::extract(lc_raster,as.data.frame(tanganyikaSites)[c(4,3)])
+## all equal 0
+#coll_grass = raster::extract(lc_grass_raster,st_coordinates(filteredColl_sf))
+#site_grass = raster::extract(lc_grass_raster,as.data.frame(tanganyikaSites)[c(4,3)])
+
+#depth_raster = get_aws_terrain(coordinates,prj=st_crs(coordinates),z=5)
+
+#depth_raster = raster("depth_raster.tif")
+#site_depth = raster::extract(depth_raster,as.data.frame(tanganyikaSites)[c(4,3)])
+
+
+
+#site_sf = counts_site %>% st_as_sf(coords=c("long","lat"),crs="WGS84") %>% dplyr::select(siteid) %>% distinct()
+
+
+#buffer_radius <- 25000  # Radius in meters
+#coll_circle <- st_buffer(filteredColl_sf, dist = buffer_radius)
+#site_circle <- st_buffer(site_sf, dist = buffer_radius)
+
+
+#extent_region <- extent(coordinates) # Replace with your area coordinates
+
+#grass_lc_subset = raster("grass_lc_subset.tif")
+
+
+#tm_shape(grass_lc_subset) + tm_raster(style="cont") + 
+ #   tm_shape(filteredColl_sf) + tm_dots(col="red",size=0.5,alpha=0.5) +
+ #   tm_shape(site_sf) + tm_dots(col="black",size=0.5,alpha=0.5) +
+#    tm_shape(coll_circle) + tm_borders(col="red",alpha=0.5) +
+ #   tm_shape(site_circle) + tm_borders(col="black",alpha=0.5)
+
+
+
+# Function to crop, mask, and calculate mean for each polygon
+#calculate_mean_grass <- function(poly) {
+ # cropped <- raster::crop(grass_lc_subset, as_Spatial(poly))          # Crop to bounding box
+  #masked <- raster::mask(cropped, as_Spatial(poly))               # Mask to polygon shape
+  #mean_val <- cellStats(masked, stat = 'mean', na.rm = TRUE)  # Calculate mean
+#  return(mean_val)
+#}
+
+
+
+
+#mean_coll_grass <- lapply(1:nrow(coll_circle), function(i) calculate_mean_grass(coll_circle[i, ]))
+#mean_coll_grass <- unlist(mean_coll_grass)  # Convert to numeric vector if needed
+
+
+#mean_site_grass <- lapply(1:nrow(site_circle), function(i) calculate_mean_grass(site_circle[i, ]))
+#mean_site_grass <- unlist(mean_site_grass)  # Convert to numeric vector if needed
+
+
+
+#coll_circle = coll_circle %>% cbind(mean_coll_grass)
+
+#site_circle = site_circle %>% cbind(mean_site_grass)
+
+
+
+#counts_coll = counts_coll %>% dplyr::left_join(coll_circle, by=join_by(collunitid == collectionunitid)) 
+
+#counts_site = counts_site %>% dplyr::left_join(site_circle, by=join_by(siteid == siteid)) 
+
+
+#counts_coll_young = counts_coll %>% dplyr::filter(age <100) %>% pivot_longer(cols=c("Olea capensis","Brachystegia","Alchornea","Podocarpus","Cyperaceae","Poaceae"),names_to="taxon",values_to="percent")
+#counts_site_young = counts_site  %>% dplyr::filter(age <100) %>% pivot_longer(cols=c("Olea capensis","Brachystegia","Alchornea","Podocarpus","Cyperaceae","Poaceae"),names_to="taxon",values_to="percent")
+
+#ggplot() +
+ # geom_point(data = counts_coll_young, mapping=aes(x=mean_coll_grass,y=percent),col="red") +
+ # geom_smooth(data = counts_coll_young, mapping=aes(x=mean_coll_grass,y=percent),col="red") +
+#  geom_point(data = counts_site_young, mapping=aes(x=mean_site_grass,y=percent),col="blue") +
+  # geom_smooth(data = counts_site_young, mapping=aes(x=mean_site_grass,y=percent),col="blue") +
+ # facet_wrap(~taxon,scales="free")
+
+
+```
