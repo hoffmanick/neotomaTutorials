@@ -92,7 +92,21 @@ library(osmdata)
 
 # What is an API?
 
-## The R package and the API
+An API (application programming interface) is a set of rules that allows different computers or computer components to communicate. One set of APIs enable a user's computer programs to access resources managed by the same computer's operating system. For example, a program might request memory through an API known as a system call. 
+
+The APIs we're concerned with here are Web APIs. That is, they're APIs that use Web protocols like HTTP to enable communication between computers through the internet. Web APIs are fundamental to web-based information sharing.
+
+## The Neotoma2 R package and the API
+
+You may not have used an API explicitly before, but if you've used the ```Neotoma2``` R package, then you've already used it implicitly. All ```Neotoma2``` functions at some point require use of the helper function ```neotoma2::parseURL()```. This function is somewhat long, but we can use ```grep()``` to search through it for any mention of an API. When we do we get the following result: 
+
+`r grep("api",deparse(neotoma2::parseURL),value=TRUE)`
+
+In other words, any ```Neotoma2``` function is ultimately using the Neotoma API to communicate with the database. So why would we ever want to use the APIs directly, rather than mediate through the ```neotoma2``` R package? There are at least two reasons:
+1. It is much faster to use the API directly to download large amounts of data, and 
+2. Some Neotoma metadata is only available through the API, not the R package.
+
+Let's examine each of these reasons in order.
 
 # Call time comparison
 
@@ -111,8 +125,6 @@ coordinates_sf = coordinates %>%
   st_cast("POLYGON")
 
 bbox_geojson = sf_geojson(coordinates_sf)
-
-Rsites = neotoma2::get_sites(loc = bbox_geojson, all_data = TRUE)
 
 R_getsites_time = system.time(neotoma2::get_sites(loc = bbox_geojson, all_data = TRUE))
 
@@ -136,8 +148,6 @@ coordinates1_sf = coordinates1 %>%
   st_cast("POLYGON")
 
 bbox_geojson1 = sf_geojson(coordinates1_sf)
-
-Rsites1 = neotoma2::get_sites(loc = bbox_geojson1, all_data = TRUE)
 
 R_getsites_time1 = system.time(neotoma2::get_sites(loc = bbox_geojson1, all_data = TRUE))
 
@@ -163,8 +173,6 @@ coordinates2_sf = coordinates2 %>%
 
 bbox_geojson2 = sf_geojson(coordinates2_sf)
 
-Rsites2 = neotoma2::get_sites(loc = bbox_geojson2, all_data = TRUE)
-
 R_getsites_time2 = system.time(neotoma2::get_sites(loc = bbox_geojson2, all_data = TRUE))
 
 api_sites2 = content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc=",bbox_geojson2,"&limit=9999&offset=0")))$data
@@ -189,8 +197,6 @@ coordinates3_sf = coordinates3 %>%
 
 bbox_geojson3 = sf_geojson(coordinates3_sf)
 
-Rsites3 = neotoma2::get_sites(loc = bbox_geojson3, all_data = TRUE)
-
 R_getsites_time3 = system.time(neotoma2::get_sites(loc = bbox_geojson3, all_data = TRUE))
 
 api_sites3 = content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc=",bbox_geojson3,"&limit=9999&offset=0")))$data
@@ -214,8 +220,6 @@ coordinates4_sf = coordinates4 %>%
   st_cast("POLYGON")
 
 bbox_geojson4 = sf_geojson(coordinates4_sf)
-
-Rsites4 = neotoma2::get_sites(loc = bbox_geojson4, all_data = TRUE)
 
 R_getsites_time4 = system.time(neotoma2::get_sites(loc = bbox_geojson4, all_data = TRUE))
 
@@ -386,7 +390,7 @@ api_getsites_timeg = system.time(content(GET(paste0("https://api.neotomadb.org/v
 
 ```
 
-Below you can see how the R package gets slower and slower the greater the number of sites you're trying to grab. 
+Below you can see how the R package gets slower and slower the greater the number of sites you're trying to grab. We added a few points that aren't displayed above just to fill out the curve without adding too much clutter to the page.
 ```{r neo2download_NA}
 
 Rtimes = c(R_getsites_time[[3]],R_getsites_time1[[3]],R_getsites_time2[[3]],R_getsites_time3[[3]],R_getsites_time4[[3]],R_getsites_timea[[3]],R_getsites_timeb[[3]],R_getsites_timec[[3]],R_getsites_timed[[3]],R_getsites_timee[[3]],R_getsites_timef[[3]],R_getsites_timeg[[3]])
@@ -404,7 +408,7 @@ ggplot(time_df) +
   scale_y_continuous(name="time (seconds)") +
   scale_x_continuous(name = "number of sites")
 ```
-<div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
+
 
 # The JSON format
 
@@ -473,3 +477,4 @@ datatable(site_df, rownames=FALSE)
 
 #data_download = content(GET(paste0("https://api.neotomadb.org/v2.0/data/downloads/",dset_string,"&limit=9999")))$data
 ```
+<div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
