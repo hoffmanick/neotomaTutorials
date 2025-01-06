@@ -288,7 +288,7 @@ filteredColl_sf = collunit_df %>% dplyr::filter(collectionunitid %in% siteMetada
 
 ```
 
-Now that we've defined all our objects, we are going to look for all the relevant depth and elevation data. We can load up a bathymetric map of Lake Tanganyika and vectors of the depths of Lake Tanganyika provided by Mike McGlue. When we plot the bathymetric raster map, we get a qualitative sense of the depth profile of Lake Tanganyika, but we want actual numbers, so we need to use the depth contour vectors. (The difference between raster and vector data is beyond the scope of this tutorial, but if you need a refresher, see this [page](https://gisgeography.com/spatial-data-types-vector-raster/).
+Now that we've defined all our objects, we are going to look for all the relevant depth and elevation data. We can load up a bathymetric map of Lake Tanganyika and vectors of the depths of Lake Tanganyika provided by Mike McGlue. When we plot the bathymetric raster map, we get a qualitative sense of the depth profile of Lake Tanganyika, but we want actual numbers, so we need to use the depth contour vectors. (The difference between raster and vector data is beyond the scope of this tutorial, but if you need a refresher, see this [page](https://gisgeography.com/spatial-data-types-vector-raster/).)
 
 
 ``` {r bathy}
@@ -334,10 +334,13 @@ depths_all = as.data.frame(samps) %>% left_join(coll_df,by=join_by("siteid" == "
 depths_all = depths_all %>% dplyr::mutate(depth_difference = depth_site - depth_coll)
 datatable(depths_all,rownames=FALSE, options = list(pageLength=11))
 ```
-We can see there is one case where the depth based on the collection unit is equal to the depth based on the site - but that's our one point where the site is in fact the location of a single core, so we expect that. Otherwise, there's always a difference between the purported site depth and the actual collection unit depth that can be as big as 500 m. That's a significant difference if you're interested in the aquatic ecology of the collection unit area. Also notice that when the depth is reported in the Neotoma metadata (in the location field), except for our one site where there's no difference, the core location depth is always closer to the reported depth.
+
+The difference between the depth estimated from the site location and the depth estimated from the core location is in the column "depth_difference" in the above table. "Depth_site," "depth_coll", and "depth_difference" are all measured in meters. We can see there is one case where the depth based on the collection unit is equal to the depth based on the site - but that's our one point where the site is in fact the location of a single core, so we expect that. Otherwise, there's always a difference between the purported site depth and the actual collection unit depth that can be as big as 500 m. That's a significant difference if you're interested in the aquatic ecology of the collection unit area. Also notice that when the depth is reported in the Neotoma metadata (in the location field), except for our one site where there's no difference, the core location depth is always closer to the reported depth.
 
 # Conclusion
 
 We compared the depths associated with nominal point site locations and with actual core locations for Neotoma paleodata from Lake Tanganyika. We found that there's always a difference between the site and core location depth, confirming our intuition: we better be careful about the difference between sites and collection units in Neotoma.
+
+ If you would like to provide feedback about this tutorial, please complete this [form](https://docs.google.com/forms/d/e/1FAIpQLSf7aRsbQMa_hj2CKwcpGmF26Huk4MdP9pj5M7zcVF4K2d2zFQ/viewform?usp=sf_link) or reach out to Nick Hoffman at nicholashoffman@ucmerced.edu.
 
 <div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
