@@ -1,5 +1,5 @@
 ---
-title: "Flujo de Trabajo para Neotoma Metadatos"
+title: "Flujo de Trabajo para Metadatos de Neotoma"
 author: "Nick Hoffman"
 date: "`r Sys.Date()`"
 output:
@@ -70,16 +70,18 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 # Introducción
-La Base de Datos de Paleoecología Neotoma permite a los usuarios generar nuevos conocimientos paleobiológicos a través de su curaduría de miles de conjuntos de datos paleo y metadatos asociados. El alcance de los metadatos que Neotoma conserva puede no ser obvio para sus usuarios, porque no todos están expuestos en la aplicación Neotoma Explorer, o incluso en las funciones proporcionadas por el paquete de R ```neotoma2```. Si usted no está familiarizado con un paleoregistro, entonces es especialmente importante que se familiarice con sus metadatos para asegurarse de que entiende los datos con los que está trabajando.
+La Base de Datos de Paleoecología Neotoma permite a los usuarios generar nuevos conocimientos paleobiológicos a través de la curaduría de miles de conjuntos de bases de datos paleo y los metadatos asociados. El alcance de los metadatos que Neotoma conserva puede no ser obvio para sus usuarios, porque no toda la información está disponible en la aplicación de Neotoma Explorer, o incluso en las funciones proporcionadas por el paquete de R ```neotoma2```. Si usted no está familiarizado con un paleoregistro, entonces es especialmente importante que se familiarice con sus metadatos para asegurarse de que entiende los datos con los que está trabajando.
 
-Este tutorial le mostrará cómo explorar más de estos extensos metadatos, centrándose en la localización del yacimiento y del núcleo. Al final de este tutorial, usted deberá ser capaz de 
+Este tutorial le mostrará cómo explorar más de estos extensos metadatos, centrándose en el sitio y la ubicación del núcleo. Al final de este tutorial, usted deberá ser capaz de 
 
-* comprobar si un yacimiento en Neotoma está almacenado como un punto o como un polígono 
-* entender la diferencia entre la tabla de yacimientos de Neotoma y la tabla de unidades de colección, y 
-* utilizar la visualización del esquema de Open Neotoma para buscar tablas de metadatos desconocidas.
+<ul>
+<li>comprobar si un yacimiento en Neotoma está almacenado como un punto o como un polígono </li>
+<li>entender la diferencia entre la tabla de sitios de Neotoma y la tabla de unidades de colección, y </li>
+<li>utilizar la visualización del esquema Abierto de Neotoma para buscar tablas de metadatos desconocidas.</li>
+</ul>
 
 # ¿Qué son los metadatos?
-Antes de empezar a trabajar con los datos, definamos los metadatos. Los metadatos son datos sobre datos; contextualizan los datos, dándoles sentido y haciéndolos utilizables. Entre otras cosas, pueden referirse a la procedencia (¿quién recopiló los datos? ¿De dónde?), el método (¿cómo se recopilaron los datos?), y la política y la ética (¿el proceso de recopilación de datos requirió un proceso de revisión? ¿Cómo se autoriza el uso de los datos?). Es importante tener en cuenta que la distinción entre datos y metadatos puede ser un poco resbaladiza: depende de la pregunta que se haga. Si está realizando un análisis de las proporciones de polen en un único lugar a lo largo del tiempo, entonces las proporciones de polen son sus datos, y las coordenadas del lugar son metadatos. Pero si está buscando en múltiples sitios cualquier muestra de polen de superficie con una proporción de Cyperaceae superior al 10%, entonces las coordenadas de su sitio son ahora ellas mismas los datos.
+Antes de empezar a trabajar con los datos, definamos los metadatos. Los metadatos son datos sobre datos; contextualizan los datos, dándoles sentido y haciéndolos utilizables. Entre otras cosas, pueden referirse a la procedencia (¿quién recopiló los datos? ¿dónde?), el método (¿cómo se recopilaron los datos?), y la política y la ética (¿el proceso de recopilación de datos requirió un proceso de revisión? ¿Cómo se autoriza el uso de los datos?). Es importante tener en cuenta que la distinción entre datos y metadatos puede ser un poco resbaladiza: depende de la pregunta que se haga. Si está realizando un análisis de los porcentajes de polen a lo largo del tiempo en un sólo lugar, entonces los porcentajes de polen son sus datos, y las coordenadas del lugar son metadatos. Pero si está buscando en múltiples sitios cualquier muestra de polen de superficie con una proporción de Cyperaceae superior al 10%, entonces las coordenadas de su sitio son los datos.
 
 # Obtención de datos
 ## Paquetes
@@ -99,7 +101,7 @@ library(httr)
 ```
 
 ## Sitios de interés
-Ahora que tenemos nuestros paquetes cargados, podemos tomar algunos sitios que nos interesan. Este tutorial asume que ya sabes cómo obtener datos a través del paquete de R ```neotoma2```. Si necesita un repaso, consulte este tutorial.
+Ahora que tenemos nuestros paquetes cargados, podemos escoger algunos sitios que nos interesan. Este tutorial asume que ya sabes cómo obtener datos a través del paquete de R ```neotoma2```. Si necesita un repaso, consulte este tutorial.
 
 Buscaremos los sitios del lago Tanganica. Tomamos los sitios, y luego usamos la función ```neotoma2::plotLeaflet()``` para ver dónde están esos sitios.
 
@@ -112,16 +114,16 @@ tanganyikaSites = get_sites(sitename = "%Tanganyika%")
 plotLeaflet(tanganyikaSites)
 ```
 
-Encontramos cuatro sitios, y parecen estar situados a lo largo del centro del lago. Pero hay que tener cuidado. La función ```plotLeaflet()``` representará todos los sitios en Neotoma como puntos, incluso si las coordenadas de las geometrías de los sitios están realmente almacenadas en Neotoma como polígonos. En el modelo de datos de Neotoma, los yacimientos se refieren a las localidades generales de las que se extraen los paleodatos, pero no necesariamente a las localizaciones precisas en las que se toman los testigos. En el caso de un lago pequeño, puede que esto no suponga ninguna diferencia para su análisis. Pero en el caso de un gran lago como el Tanganica, la diferencia entre el centroide de un polígono y la ubicación real de los testigos puede ser significativa.
+Encontramos cuatro sitios, y parecen estar situados a lo largo del centro del lago. Pero hay que tener cuidado. La función ```plotLeaflet()``` representará todos los sitios en Neotoma como puntos, incluso si las coordenadas de las geometrías de los sitios están realmente almacenadas en Neotoma como polígonos. En el modelo de datos de Neotoma, los sitios se refieren a las localidades generales de las que se extraen los paleodatos, pero no necesariamente constituyen las ubicaciones precisas en las que se toman los testigos. En el caso de un lago pequeño, puede que esto no suponga ninguna diferencia para su análisis. Pero en el caso de un gran lago como el Tanganica, la diferencia entre el centroid de un polígono y la ubicación real de los testigos puede ser significativa.
 
-Afortunadamente, Neotoma a menudo almacena la información de localización del núcleo en un objeto separado, la unidad de recogida. Los yacimientos son los lugares donde tuvo lugar la recogida de datos en general, y las unidades de recolección son los materiales concretos que está analizando de un yacimiento - las unidades de recolección pueden ser núcleos, excavaciones, basureros, secciones, especímenes, etc. Más información sobre la distinción entre yacimientos y unidades de recogida [aquí](https://open.neotomadb.org/neotoma2/inst/doc/neotoma2-package.html).
+Afortunadamente, Neotoma a menudo almacena la información de la ubicación del núcleo en un objeto separado, la unidad de colección. Los sitios son los lugares donde tuvo lugar la recolección de datos en general, y las unidades de recolección son los materiales concretos que está analizando de un sitio - las unidades de recolección pueden ser núcleos, excavaciones, madrigueras, secciones, especímenes, etc. Más información sobre las diferencias entre sitios y unidades de colección pueden ser encontradas [aquí](https://open.neotomadb.org/neotoma2/inst/doc/neotoma2-package.html).
 
 # Puntos y polígonos
 Comprobemos si los objetos del yacimiento del lago Tanganica son realmente puntos o polígonos.
 
-La función ```plotLeaflet()``` es una gran herramienta para comprender la localización general de un yacimiento, pero a veces puede inducirnos a pensar que un yacimiento está descrito con más precisión en Neotoma de lo que realmente está. Esto no siempre es un problema - a veces todo lo que necesitamos es la ubicación general del sitio. Pero si estamos tratando de ser cuidadosos sobre la localización del sitio - si, por ejemplo, estamos haciendo un análisis que es sensible a la variación espacial a pequeña escala - entonces vamos a querer obtener metadatos más autorizados de Neotoma sobre la localización del sitio. Podemos hacerlo a través de una de [las llamadas a la API de Neotoma](https://api.neotomadb.org/api-docs/).
+La función ```plotLeaflet()``` es una gran herramienta para comprender la localización general de un yacimiento, pero a veces puede inducirnos a pensar que un sitio está descrito con más precisión en Neotoma de lo que realmente está. Esto no siempre es un problema - a veces todo lo que necesitamos es la ubicación general del sitio. Pero si estamos tratando de ser cuidadosos sobre la ubicación del sitio - si, por ejemplo, estamos haciendo un análisis que es sensible a la variación espacial a pequeña escala - entonces vamos a querer obtener metadatos de Neotoma más oficiales sobre la ubicación del sitio. Podemos hacerlo a través de una de [las llamadas a la API de Neotoma](https://api.neotomadb.org/api-docs/).
 
-En concreto, vamos a utilizar una API que requiere un siteid de Neotoma, o una cadena de siteids separada por comas, como entrada. La salida de esta API serán metadatos de sitios y conjuntos de datos. En primer lugar, formatearemos los siteids de los sitios de Tanganica que encontramos anteriormente como una cadena separada por comas y, a continuación, los pegaremos en la llamada a la API concreta que nos gustaría realizar. Enviamos una petición ```GET()``` y descomprimimos la respuesta con la función ```content()```, centrándonos sólo en lo que hay bajo la cabecera data. Y podemos mirar el principio de nuestra salida (que llamamos siteMetadata). 
+Particularmente, vamos a utilizar una API que requiere un siteid de Neotoma, o una cadena de siteids separada por comas, como entrada. La salida de esta API serán metadatos de sitios y conjuntos de datos. En primer lugar, formatearemos los siteids de los sitios de Tanganica que encontramos anteriormente como una cadena separada por comas y, a continuación, los pegaremos en la llamada a la API concreta que nos gustaría realizar. Enviamos una petición ```GET()``` y descomprimimos la respuesta con la función ```content()```, centrándonos sólo en lo que hay bajo la cabecera data. Podemos mirar el principio de nuestra salida (que llamamos siteMetadata). 
 
 ```{r api-sites, echo=TRUE, warning=FALSE}
 
@@ -139,7 +141,7 @@ siteMetadata = content(response)$data
 siteMetadata[[1]]$site[1:5]
 ```
 
-siteMetadata es una lista de... bueno... metadatos de sitios. Incluso mirando las primeras entradas de esta lista, podemos ver que al menos un sitio que ```plotLeaflet()``` representó como un punto es en realidad un polígono. Pero la estructura de la lista es difícil de leer. Vamos a reformatear esta lista como una tabla de datos, y por ahora, vamos a mantener sólo los metadatos del sitio, no los metadatos del conjunto de datos. Como sólo guardamos los metadatos del sitio, algunas de nuestras entradas estarán duplicadas; podemos guardar sólo las entradas distintas.
+siteMetadata es una lista de... bueno... metadatos de sitios. Incluso mirando las primeras entradas de esta lista, podemos ver que al menos un sitio que ```plotLeaflet()``` representó como un punto es en realidad un polígono. Pero la estructura de la lista es difícil de leer. Vamos a reorganizar esta lista como una tabla de datos, y por ahora, vamos a mantener sólo los metadatos del sitio, no los metadatos del conjunto de datos. Como sólo guardamos los metadatos del sitio, algunas de nuestras entradas estarán duplicadas; podemos guardar sólo las entradas distintas.
 
 
 ```{r metadata-to-table, warning=FALSE}
@@ -184,7 +186,7 @@ datatable(siteMetadata_df[1:10],rownames=FALSE)
 
 Observará que incluso después de eliminar las entradas duplicadas, tenemos once filas, pero sólo cuatro sitios. Esto se debe a que los metadatos bajo la cabecera del sitio también incluyen información sobre las unidades de colección -más sobre las unidades de colección en breve- y cada uno de estos sitios está asociado con entre 1 y 4 unidades de colección.
 
-Antes de hablar de las unidades de colección con más detalle, vamos a mapear los nuevos metadatos de ubicación de los sitios, para comprobar si de hecho son puntos o polígonos. Para ello, utilizaremos la función ```geojson_sf()``` para convertir la columna geography de nuestro marco de datos siteMetadata_df en un objeto sf (simple features), y volveremos a vincular ese objeto sf al resto del marco de datos. A continuación, separaremos los sitios que tienen geometría de puntos (pointSites) de los que tienen geometría de polígonos (polySites), manteniendo sólo las filas con siteids distintos, y trazaremos ambos objetos en un gráfico de folletos.
+Antes de hablar de las unidades de colección con más detalle, vamos a mapear los nuevos metadatos de ubicación de los sitios, para comprobar si de hecho son puntos o polígonos. Para ello, utilizaremos la función ```geojson_sf()``` para convertir la columna geography de nuestro marco de datos siteMetadata_df en un objeto sf (características simples / simple features), y volveremos a vincular ese objeto sf al resto del marco de datos. A continuación, separaremos los sitios que tienen geometría de puntos (pointSites) de los que tienen geometría de polígonos (polySites), manteniendo sólo las filas con siteids distintos, y graficaremos ambos objecos en una figura leaflet.
 
 
 ```{r geo-revisited, warning=FALSE}
@@ -217,12 +219,12 @@ leaflet() %>%
 ```
 
 
-Aha: tres de nuestros cuatro sitios son de hecho polígonos, ¡no puntos! El objeto site en Neotoma sólo puede delimitar la localidad en la que se ha producido una investigación en los términos más generales.
+¡Ajá! tres de nuestros cuatro sitios son de hecho polígonos, ¡no puntos! El objeto de sitio en Neotoma sólo puede delimitar la localidad en la que se ha llevado a cabo una investigación en los términos más generales.
 
-Así que hemos aprendido que el sitio no nos da información precisa sobre la localización de un registro polínico. Entonces, ¿dónde encontramos la información sobre la localización del núcleo? Resulta que tenemos que buscar en la tabla collectionunits, accesible a través de una API.
+Así que hemos aprendido que el sitio no nos da información precisa sobre la ubicación exacta de un registro polínico. Entonces, ¿dónde encontramos la información sobre la ubicación del núcleo? Resulta que tenemos que buscar en la tabla collectionunits, accesible a través de una API.
 
 # La tabla collectionunits
-La tabla collectionunits es el lugar al que acudir para conocer los metadatos específicos del núcleo, incluida la ubicación precisa del mismo. Si un yacimiento suele ser un lago o una turbera, la unidad de colección suele ser un único núcleo del yacimiento. Para acceder a las unidades de colección asociadas a nuestros yacimientos de Tanganica, primero tenemos que descargar toda la tabla de unidades de colección. A continuación, filtraremos las unidades de recogida que nos interesen. A continuación, tomamos la tabla de unidades de recolección como una lista, la reformateamos en un marco de datos y, a continuación, en un objeto sf, y la trazamos sobre nuestro mapa.
+La tabla collectionunits es el lugar al que acudir para conocer los metadatos específicos del núcleo, incluida la ubicación precisa del mismo. Si un sitio suele ser un lago o una turbera, la unidad de colección suele ser un único núcleo del sitio. Para acceder a las unidades de colección asociadas a nuestros sitios de Tanganica, primero tenemos que descargar toda la tabla de unidades de colección. A continuación, filtraremos las unidades de colección que nos interesen. Posteriormente, tomamos la tabla de unidades de recolección como una lista, la reorganizamos en un marco de datos y, a continuación, en un objeto sf, y la trazamos sobre nuestro mapa.
 
 ```{r collectionunits, warning=FALSE}
 
@@ -290,14 +292,14 @@ leaflet() %>%
 
 
 
-En el gráfico anterior, los yacimientos y los núcleos asociados aparecen en el mismo color. Los yacimientos tienen contornos negros y los núcleos tienen contornos blancos. Si hace clic en un yacimiento o núcleo, aparecerá su nombre. ¿Y qué le parece? A excepción del sitio «Lake Tanganyika [SD cores]» (nuestro único sitio puntual), no hay coincidencias entre la ubicación general del sitio y la ubicación del núcleo.
+En el gráfico anterior, los sitios y los núcleos asociados aparecen en el mismo color. Los sitios tienen contornos negros y los núcleos tienen contornos blancos. Si hace clic en un sitio o núcleo, aparecerá su nombre. ¿Y qué le parece? A excepción del sitio «Lake Tanganyika [SD cores]» (nuestro único sitio puntual), no hay coincidencias entre la ubicación general del sitio y la ubicación del núcleo.
 
-Esto plantea la pregunta: ¿a qué resolución espacial y para qué tipo de análisis empiezan a ser importantes estos desajustes? Véase esta [demostración](coordinatesMatter.html) para una respuesta.
+Esto plantea la pregunta: ¿a qué resolución espacial y para qué tipo de análisis empiezan a ser importantes estos desajustes? Véase esta [demostración](coordinatesMatter.html) como respuesta.
 
 #  Exploración adicional de los metadatos de Neotoma
-Pudimos encontrar información importante de localización descargando toda la tabla collectionunits, y pudimos hacerlo porque sabíamos de la existencia de esta tabla. Pero Neotoma tiene un modelo de datos sofisticado - hay tablas con información relevante cuya existencia no vamos a conocer.
+Pudimos encontrar información importante de ubicación del sitio al descargar toda la tabla collectionunits, y pudimos hacerlo porque sabíamos de la existencia de esta tabla. Pero Neotoma tiene un modelo de datos sofisticado - hay tablas con información relevante cuya existencia no vamos a conocer.
 
-Por suerte, el modelo de datos de Neotoma es abierto, y está disponible para su exploración en Open Neotoma. Podemos utilizar este recurso para explorar más metadatos. Si, por ejemplo, quisiéramos ver qué otra información está conectada a nuestras unidades de colección, podemos navegar a la página en Open Neotoma sobre las tablas de unidades de colección. Esta página proporciona los nombres y definiciones de los campos de la tabla de unidades de colección y, si se desplaza hasta la parte inferior de la página, también puede ver con qué otras tablas está conectada la tabla de unidades de colección a través de pares de claves primarias/externas.
+Por suerte, el modelo de datos de Neotoma es abierto, y está disponible para su exploración en Open Neotoma. Podemos utilizar este recurso para explorar más metadatos. Si, por ejemplo, quisiéramos ver qué otra información está conectada a nuestras unidades de colección, podemos navegar a la página en Open Neotoma sobre las tablas de unidades de colección. Esta página proporciona los nombres y definiciones de los campos de la tabla de unidades de colección y, si se desplaza hasta la parte inferior de la página, también puede ver con qué otras tablas están conectada con la tabla de unidades de colección a través de pares de claves primarias/externas.
 
 <img src="./images/collectionunits_relationships.JPG" >
 
@@ -331,8 +333,8 @@ datatable(filtered_colls[c(1,3,6,14,15,16,21,22,23)],rownames=FALSE)
 Si lo hacemos, encontramos que el sustrato es arcilla o barro, limo o no está registrado. Supongo que no es demasiado sorprendente en el caso de los testigos de sedimentos.
 
 #  Conclusión
-A lo largo de este tutorial, hemos descubierto que los yacimientos de Neotoma del lago Tanganica se describen principalmente con polígonos, no con puntos, y hemos aprendido dónde encontrar información más precisa sobre la ubicación de los testigos de esos yacimientos. Por último, hemos explorado brevemente un recurso para descubrir aún más metadatos de Neotoma.
+A lo largo de este tutorial, hemos descubierto que los sitios de Neotoma del lago Tanganica se describen principalmente con polígonos, no con puntos, y hemos aprendido dónde encontrar información más precisa sobre la ubicación de los testigos de esos sitios. Por último, hemos explorado brevemente un recurso para descubrir aún más metadatos de Neotoma.
 
-Esperamos que esta inmersión en los metadatos de Neotoma le anime a profundizar en el modelo de datos de Neotoma - ¡es un recurso muy rico! Si desea hacer algún comentario sobre este tutorial, rellene este [formulario](https://docs.google.com/forms/d/e/1FAIpQLSf7aRsbQMa_hj2CKwcpGmF26Huk4MdP9pj5M7zcVF4K2d2zFQ/viewform?usp=sf_link).
+Esperamos que esta inmersión en los metadatos de Neotoma le anime a profundizar en el modelo de datos de Neotoma - ¡es un recurso muy rico! Si desea hacer algún comentario sobre este tutorial, llene este [formulario](https://docs.google.com/forms/d/e/1FAIpQLSf7aRsbQMa_hj2CKwcpGmF26Huk4MdP9pj5M7zcVF4K2d2zFQ/viewform?usp=sf_link).
 
 <div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
