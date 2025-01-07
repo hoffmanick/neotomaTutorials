@@ -110,7 +110,7 @@ print(firstAPI)
 
 ```
 
-Status: 200 is a good sign; that means the call issued successfully. Now we use ```content()``` to get the data. The output of ```content()```, called insides, has three components: status, data, and message. Most of the time, status will be "success", and message will be "retrieved all tables," so we mostly care about the data. But in case you're ever running int issues and need to debug, it can be helpful to consider what the status and message are.
+Status: 200 is a good sign; that means the call issued successfully. Now we use ```content()``` to get the data. The output of ```content()```, called insides, has three components: status, data, and message. Most of the time, status will be "success", and message will be "retrieved all tables," so we mostly care about the data. But in case you're ever running into issues and need to debug, it can be helpful to consider what the status and message are.
 
 ``` {r an-api2}
 
@@ -150,7 +150,7 @@ names(canis_df) = c("occid","taxonid","taxonname","value","units","datasetid","s
 
 Web APIs return their responses in JSON (JavaScript Object Notation) format. JSON represents data as arrays of objects in which keys that define a property are assigned values. The value might be a number or string, or it could itself be an object or array of objects. Here's a snippet of what JSON format looks like:
 
-`r substr(toJSON(insides),1,453)`
+`r substr(toJSON(insides),1,459)`
 
 In R, it is natural to represent these JSON arrays as nested lists:
 
@@ -195,12 +195,15 @@ You may not have used an API explicitly before, but if you've used the ```Neotom
 `r grep("api",deparse(neotoma2::parseURL),value=TRUE)`
 
 In other words, any ```Neotoma2``` function is ultimately using the Neotoma API to communicate with the database. So why would we ever want to use the APIs directly, rather than mediate through the ```neotoma2``` R package? There are at least two reasons:
-1. It is much faster to use the API directly to download large amounts of data, and 
-2. Some Neotoma metadata is only available through the API, not the R package.
-
+<ol>
+<li>It is much faster to use the API directly to download large amounts of data, and</li> 
+<li>Some Neotoma metadata is only available through the API, not the R package.</li>
+</ol>
 Let's examine each of these reasons in order.
 
 # Call time comparison
+
+In order to compare how the call times of the ```neotoma2``` functions and the Neotoma API scale with the size of the data being handled, we'll download increasingly large number of sites using the ```neotoma2``` function ```get_sites()``` as well as the API call https://api.neotomadb.org/v2.0/data/sites?. ```get_sites()``` and the API both take as one of their inputs the parameter loc, where we can supply a spatial extent in geoJSON format. We'll define increasingly large spatial extents as sf objects, and use the R function ```system.time()``` to measure how long they take. (```system.time()``` has three outputs: user, system, and elapsed. We mostly care about elapsed, which is the actual wall time taken for the function to complete. User and system have to do with how the computer operating system allocates resources to run the function.)
 
 ```{r neo2download}
 
@@ -325,12 +328,12 @@ print(R_getsites_time4)
 print(api_getsites_time4)
 print(length(api_sites4))
 
-tm_shape(osm.raster(coordinates4_sf)) + tm_rgb() +
-  tm_shape(coordinates4_sf) + tm_borders(col="red") +
-  tm_shape(coordinates3_sf) + tm_borders(col="blue") +
-  tm_shape(coordinates2_sf) + tm_borders(col="black") +
-  tm_shape(coordinates1_sf) + tm_borders(col="green") +
-  tm_shape(coordinates_sf) + tm_borders(col="white")
+#tm_shape(osm.raster(coordinates4_sf)) + tm_rgb() +
+#  tm_shape(coordinates4_sf) + tm_borders(col="red") +
+#  tm_shape(coordinates3_sf) + tm_borders(col="blue") +
+#  tm_shape(coordinates2_sf) + tm_borders(col="black") +
+#  tm_shape(coordinates1_sf) + tm_borders(col="green") +
+#  tm_shape(coordinates_sf) + tm_borders(col="white")
 
 
 ```
@@ -482,7 +485,8 @@ api_getsites_timeg = system.time(content(GET(paste0("https://api.neotomadb.org/v
 
 ```
 
-Below you can see how the R package gets slower and slower the greater the number of sites you're trying to grab. We added a few points that aren't displayed above just to fill out the curve without adding too much clutter to the page.
+Below you can see how the R package gets slower and slower the greater the number of sites you're trying to grab, while the API call is always quick. (We added a few points that aren't displayed above just to fill out the curve without adding too much clutter to the page.) There's a clear lesson here: the more data you're dealing with, the bigger the payoff associated with using the APIs directly rather than mediating through the ```neotoma2``` package.
+
 ```{r neo2download_NA}
 
 Rtimes = c(R_getsites_time[[3]],R_getsites_time1[[3]],R_getsites_time2[[3]],R_getsites_time3[[3]],R_getsites_time4[[3]],R_getsites_timea[[3]],R_getsites_timeb[[3]],R_getsites_timec[[3]],R_getsites_timed[[3]],R_getsites_timee[[3]],R_getsites_timef[[3]],R_getsites_timeg[[3]])
@@ -503,9 +507,9 @@ ggplot(time_df) +
 
 # Access More Metadata
 
-Neotoma contains extensive metadata that are not all exposed through the R package. The API is useful for gathering these metadata. For example, you can see in the image below (from the Neotoma [open schema](https://open.neotomadb.org/dbschema/ndb/tables/sites)), some of the metadata tables linked to sites:
+Neotoma contains extensive metadata that are not all exposed through the R package. (See this [tutorial](https://hoffmanick.github.io/neotomaTutorials/neotomaMetadataWorkflow.html) for even more information about Neotoma metadata.) The API is useful for gathering these metadata. For example, you can see in the image below (from the Neotoma [open schema](https://open.neotomadb.org/dbschema/ndb/tables/sites)), some of the metadata tables linked to samples:
 
-<img src="./images/datasetmetadata.png">
+<img src="./images/samplemetadata.JPG">
 
 Earlier in this tutorial, I claimed without any evidence that the taxonid which corresponds to <i>Canis spp.</i> is 35619. The way I figured that out was through the Neotoma metadata available by API call. I grabbed the taxa table  using a particularly versatile API call, "/v2.0/data/dbtables/", that downloads whichever table name you supply. I turned the returned list into a dataframe for easier analysis, and I grepped through the entire taxa table for any taxa name that included "Canis." 
 
@@ -534,8 +538,8 @@ datatable(taxa_df[grep("Canis",taxa_df$taxonname),],rownames=FALSE)
 
 # Conclusion
 
-In this tutorial, we briefly introduced the concept of an API: what they are, how their outputs are formatted, and how the Neotoma APIs relate to the Neotoma R package. We used a few APIs, and along the way we introduced two compelling reasons to use them: 1) they're much faster for large data downloads than R, and 2) they provide access to more metadata than the ```Neotoma2``` R package.
+In this tutorial, we briefly introduced the concept of an API: what they are, how their outputs are formatted, and how the Neotoma APIs relate to the ```Neotoma2 R``` package. We used a few APIs, and along the way we introduced two compelling reasons to use them: 1) they're much faster for large data downloads than R, and 2) they provide access to more metadata than the ```Neotoma2``` R package.
 
-
+If you would like to provide feedback about this tutorial, please complete this [form](https://docs.google.com/forms/d/e/1FAIpQLSf7aRsbQMa_hj2CKwcpGmF26Huk4MdP9pj5M7zcVF4K2d2zFQ/viewform?usp=sf_link) or reach out to Nick Hoffman at nicholashoffman@ucmerced.edu.
 
 <div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
