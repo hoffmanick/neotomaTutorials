@@ -195,6 +195,8 @@ You may not have used an API explicitly before, but if you've used the ```Neotom
 `r grep("api",deparse(neotoma2::parseURL),value=TRUE)`
 
 In other words, any ```Neotoma2``` function is ultimately using the Neotoma API to communicate with the database. So why would we ever want to use the APIs directly, rather than mediate through the ```neotoma2``` R package? There are at least two reasons:
+
+
 <ol>
 <li>It is much faster to use the API directly to download large amounts of data, and</li> 
 <li>Some Neotoma metadata is only available through the API, not the R package.</li>
@@ -227,10 +229,24 @@ api_sites = content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc=",
 
 api_getsites_time = system.time(content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc=",bbox_geojson,"&limit=99999&offset=0")))$data)
 
-print(R_getsites_time)
-print(api_getsites_time)
 print(length(api_sites))
 
+```
+The length of the api_sites object printed above is the number of sites we downloaded: around 150.
+
+Let's print the length of time required to fetch those 150 sites through R: 
+```{r newblock}
+print(R_getsites_time)
+```
+Only 5 or so seconds. With the API:
+
+```{r againagain}
+print(api_getsites_time)
+
+```
+Faster than 5 seconds! Let's repeat this a few times, varying the number of sites downloaded.
+
+``` {r wellll}
 
 lats1 = c(43, 50, 50, 43)
 lons1= c(-70, -70, -60, -60) 
@@ -250,10 +266,14 @@ api_sites1 = content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc="
 
 api_getsites_time1 = system.time(content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc=",bbox_geojson1,"&limit=99999&offset=0")))$data)
 
+print(length(api_sites1))
 
+```
+For alomst 500 sites, it takes about 15 seconds for the R package, and still just about 1 second for the API:
+
+``` {r howa}
 print(R_getsites_time1)
 print(api_getsites_time1)
-print(length(api_sites1))
 
 
 lats2 = c(33, 50, 50, 33)
@@ -274,12 +294,20 @@ api_sites2 = content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc="
 
 api_getsites_time2 = system.time(content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc=",bbox_geojson2,"&limit=99999&offset=0")))$data)
 
+print(length(api_sites2))
+```
+For over 1600 sites, it takes almost 80 seconds with the R package, and just 2 seconds withe API:
+
+```{r nownow}
 
 print(R_getsites_time2)
 print(api_getsites_time2)
-print(length(api_sites2))
 
+```
 
+The pattern continues below.
+
+```{r neenee}
 lats3 = c(23, 50, 50, 23)
 lons3 = c(-80, -80, -60, -60) 
 
@@ -507,7 +535,7 @@ ggplot(time_df) +
 
 # Access More Metadata
 
-Neotoma contains extensive metadata that are not all exposed through the R package. (See this [tutorial](https://hoffmanick.github.io/neotomaTutorials/neotomaMetadataWorkflow.html) for even more information about Neotoma metadata.) The API is useful for gathering these metadata. For example, you can see in the image below (from the Neotoma [open schema](https://open.neotomadb.org/dbschema/ndb/tables/sites)), some of the metadata tables linked to samples:
+The Neotoma database contains extensive metadata that are not all exposed through the R package. (See this [tutorial](https://hoffmanick.github.io/neotomaTutorials/neotomaMetadataWorkflow.html) for even more information about Neotoma metadata.) The API is useful for gathering these metadata. For example, you can see in the image below (from the Neotoma [open schema](https://open.neotomadb.org/dbschema/ndb/tables/sites)), some of the metadata tables linked to samples:
 
 <img src="./images/samplemetadata.JPG">
 
