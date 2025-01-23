@@ -288,7 +288,7 @@ filteredColl_sf = collunit_df %>% dplyr::filter(collectionunitid %in% siteMetada
 
 ```
 
-Now that we've defined all our objects, we are going to look for all the relevant depth and elevation data. We can load up a bathymetric map of Lake Tanganyika and vectors of the depths of Lake Tanganyika provided by Mike McGlue. When we plot the bathymetric raster map, we get a qualitative sense of the depth profile of Lake Tanganyika, but we want actual numbers, so we need to use the depth contour vectors. (The difference between raster and vector data is beyond the scope of this tutorial, but if you need a refresher, see this [page](https://gisgeography.com/spatial-data-types-vector-raster/).)
+Now that we've defined all our objects, we are going to look for all the relevant depth and elevation data. We can load up a bathymetric map of Lake Tanganyika and vectors of the depths of Lake Tanganyika provided by Mike McGlue and tcarta. When we plot the bathymetric raster map, we get a qualitative sense of the depth profile of Lake Tanganyika, but we want actual numbers, so we need to use the depth contour vectors. (The difference between raster and vector data is beyond the scope of this tutorial, but if you need a refresher, see this [page](https://gisgeography.com/spatial-data-types-vector-raster/).)
 
 
 ``` {r bathy}
