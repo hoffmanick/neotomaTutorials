@@ -90,18 +90,18 @@ Before we do any data wrangling, let's define metadata. Metadata are data about 
 
 ## Packages
 
-First, let's load up some packages we'll need.
+First, let's load up some packages we'll need. The following code installs the package management library ```pacman``` if you don't have it installed already, and uses that library to install the other packages we'll need.
 
 ```{r packages, warning=FALSE, message=FALSE}
 
-library(neotoma2)
-library(tidyverse)
-library(DT)
-library(geojsonsf)
-library(sf)
-library(leaflet)
-library(jsonlite)
-library(httr)
+
+if (length(grep("pacman",as.data.frame(installed.packages())$Package)) ==0) {
+  install.packages("pacman") 
+  library(pacman)
+  p_load(neotoma2,tidyverse,DT,geojsonsf,sf,leaflet,httr)
+} else {
+  library(pacman)
+  p_load(neotoma2,tidyverse,DT,geojsonsf,sf,leaflet,httr)}
 
 ```
 
