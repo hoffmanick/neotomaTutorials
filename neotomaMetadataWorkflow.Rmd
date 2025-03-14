@@ -180,7 +180,9 @@ for (i in seq(length(siteMetadata))) {
 
 siteMetadata_df = as.data.frame(siteMetadata_mat)
 
-names(siteMetadata_df) = c("siteid","sitename","sitedescription","sitenotes","geography","altitude","collectionunitid","collectionunit","handle","unittype")
+names(siteMetadata_df) = c("siteid","sitename","sitedescription","sitenotes",
+                          "geography","altitude","collectionunitid",
+                          "collectionunit","handle","unittype")
 
 
 siteMetadata_df = distinct(siteMetadata_df)
@@ -203,8 +205,10 @@ siteGeo_sf = geojson_sf(siteMetadata_df$geography)
 
 siteMetadata_sf = cbind(siteGeo_sf,siteMetadata_df)
 
-pointSites = siteMetadata_sf[st_geometry_type(siteMetadata_sf) == "POINT",] %>% distinct(siteid, .keep_all = TRUE)
-polySites = siteMetadata_sf[st_geometry_type(siteMetadata_sf) == "POLYGON",] %>% distinct(siteid, .keep_all = TRUE)
+pointSites = siteMetadata_sf[st_geometry_type(siteMetadata_sf) == "POINT",] %>% 
+  distinct(siteid, .keep_all = TRUE)
+polySites = siteMetadata_sf[st_geometry_type(siteMetadata_sf) == "POLYGON",] %>% 
+  distinct(siteid, .keep_all = TRUE)
 
 leaflet() %>%
   addTiles() %>%
@@ -238,7 +242,9 @@ The collectionunits table is the place to go to learn about core-specific metada
 
 
 text="collectionunits"
-collunits = content(GET(paste0('https://api.neotomadb.org/v2.0/data/dbtables/',text,'?count=false&limit=99999&offset=0')))$data
+collunits = content(GET(paste0('https://api.neotomadb.org/v2.0/data/dbtables/',
+                               text,
+                               '?count=false&limit=99999&offset=0')))$data
 
 
 
@@ -254,11 +260,18 @@ for (i in seq(length(collunits))) {
 
 collunit_df = collunit_mat %>% as.data.frame()
 
-names(collunit_df) = c("collectionunitid","handle","siteid","colltypeid","depenvtid","collunitname","colldate","colldevice","gpslatitude","gpslongitude","gpsaltitude","gpserror","waterdepth","substrateid","slopeaspect","slopeangle","location","notes","recdaterecreated","recdatemodified")
+names(collunit_df) = c("collectionunitid","handle","siteid","colltypeid",
+                       "depenvtid","collunitname","colldate","colldevice",
+                       "gpslatitude","gpslongitude","gpsaltitude","gpserror",
+                       "waterdepth","substrateid","slopeaspect","slopeangle",
+                       "location","notes","recdaterecreated","recdatemodified")
 
 
-filtered_colls = collunit_df %>% dplyr::filter(collectionunitid %in% siteMetadata_df$collectionunitid) 
-filteredColl_sf = collunit_df %>% dplyr::filter(collectionunitid %in% siteMetadata_df$collectionunitid) %>% st_as_sf(coords=c("gpslongitude","gpslatitude"), crs="WGS84")
+filtered_colls = collunit_df %>%
+  dplyr::filter(collectionunitid %in% siteMetadata_df$collectionunitid) 
+filteredColl_sf = collunit_df %>%
+  dplyr::filter(collectionunitid %in% siteMetadata_df$collectionunitid) %>%
+  st_as_sf(coords=c("gpslongitude","gpslatitude"), crs="WGS84")
 
 #just first ten cols
 datatable(st_drop_geometry(filteredColl_sf)[c(1:3,5:10,15)],rownames=FALSE)
@@ -316,7 +329,9 @@ If we wanted to know more about the substrate for our collection units, we could
 ```{r further-explore}
 
 text2="rocktypes"
-rocktypes = content(GET(paste0('https://api.neotomadb.org/v2.0/data/dbtables/',text2,'?count=false&limit=99999&offset=0')))$data
+rocktypes = content(GET(paste0('https://api.neotomadb.org/v2.0/data/dbtables/',
+                               text2,
+                               '?count=false&limit=99999&offset=0')))$data
 
 rock_mat = matrix(nrow = length(rocktypes),ncol=6)
 for (i in seq(length(rocktypes))) {
@@ -329,7 +344,8 @@ for (i in seq(length(rocktypes))) {
 
 rock_df = as.data.frame(rock_mat)
 
-names(rock_df) = c("rocktypeid","rocktype","higherrocktypeid","description","recdatecreated","recdatemodified")
+names(rock_df) = c("rocktypeid","rocktype","higherrocktypeid","description",
+                   "recdatecreated","recdatemodified")
 
 filtered_colls = filtered_colls %>% left_join(rock_df,by=join_by("substrateid" == "rocktypeid"))
 
