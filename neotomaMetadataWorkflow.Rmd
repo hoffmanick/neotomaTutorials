@@ -68,23 +68,27 @@ table tr th :last-child, table tr td :last-child {
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-
+```{r klippy, echo=FALSE, include=TRUE}
+klippy::klippy()
+```
 # Introduction
 
 The Neotoma Paleoecology Database empowers users to generate new paleobiological insights through its curation of thousands of paleo datasets and associated metadata. The extent of the metadata that Neotoma curates may not be obvious to its users, because it is not all exposed in the Neotoma Explorer app, or even in the functions provided by the ```neotoma2``` R package. If you are unfamiliar with a paleorecord, then it is especially important for you to grapple with its metadata to ensure that you understand the data you are working with.
 
 This tutorial will demonstrate how to explore more of this extensive metadata, with a focus on site and core location. By the end of this tutorial, you should be able to
-<ul>
-<li>check whether a site in Neotoma is stored as a point or a polygon,</li>
-<li>understand the difference between the Neotoma sites table and collectionunits table, and</li>
-<li>use the Open Neotoma schema visualization to search for unfamiliar metadata tables.</li>
-</ul>
+
+* check whether a site in Neotoma is stored as a point or a polygon,
+* understand the difference between the Neotoma sites table and collectionunits table, and
+* use the Open Neotoma schema visualization to search for unfamiliar metadata tables.
+
 
 (This tutorial will rely on a mix of ```neotoma2``` R package calls and Neotoma API calls. For a more comprehensive introduction to Neotoma API calls, please see this [page](https://hoffmanick.github.io/neotomaTutorials/neo_apis.html).)
 
 # What are metadata?
 
 Before we do any data wrangling, let's define metadata. Metadata are data about data; they contextualize data, making it meaningful and usable. Among other things, they can concern provenance (who collected the data? From where?), method (how did they collect the data?), and policy and ethics (did the data collection process require a review process? How are the data licensed to be used?). It is important to notice that the distinction between data and metadata can be a little slippery - it depends on the question you're asking. If you're doing a single-site analysis of pollen proportions over time, then the pollen proportions are your data, and the site coordinates are metadata. But if you're looking across multiple sites for any pollen surface samples with a Cyperaceae proportion greater than 10%, then your site coordinates are now themselves the data.
+
+Neotoma has an extensive data model, with lots of opportunities for finding metadata in various tables. However, the extent of metadata for any particular dataset is uneven; it depends on the level of detail supplied when the data were originally uploaded to Neotoma. In what follows, we've selected sites for which the metadata are relatively complete. But if you were to reproduce the following workflow on a new dataset, you might run into problems if, say, the collection unit GPS coordinates are not provided in Neotoma.
 
 # Getting Data
 
