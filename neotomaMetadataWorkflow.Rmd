@@ -152,7 +152,11 @@ siteMetadata = content(response)$data
 siteMetadata[[1]]$site[1:5]
 ```
 
-siteMetadata is a list of ... well ... site metadata. Even just looking at the first few entries of this list, we can see that at least one site that ```plotLeaflet()``` rendered as a point is in fact a polygon. But the list structure is hard to read. Let's reformat this list as a datatable, and for now, let's only keep site metadata, not dataset metadata. Because we're only keeping site metadata, some of our entries will be duplicated - we can keep just the distinct entries.
+siteMetadata is a list of ... well ... site metadata. Even just looking at the first few entries of this list, we can see that at least one site that ```plotLeaflet()``` rendered as a point is in fact a polygon. 
+
+But the list structure is hard to read. Let's reformat this list as a datatable, and for now, let's only keep site metadata, not dataset metadata. Because we're only keeping site metadata, some of our entries will be duplicated - we can keep just the distinct entries.
+
+In the following code chunk, we first do a nested loop through all the datasets in all the sites objects listed in siteMetadata, just to count how many distinct datasets there are. We use that value to set the number of rows in a matrix object, which we use to store the site/dataset metadata when we loop through the same nested list again. Lastly, we turn that matrix object into a data.frame and name the columns appropriately, and keep just the distinct entries in our new data frame.
 
 ```{r metadata-to-table, warning=FALSE}
 
@@ -239,7 +243,9 @@ So we've learned that the site doesn't give us precise information about the loc
 
 # The collectionunits table
 
-The collectionunits table is the place to go to learn about core-specific metadata, including precise core location. If a site is often a lake or peat bog, the collection unit is usually a single core from the site. In order to access the collectionunits associated with our Tanganyika sites, we first need to download the entire collectionunits table. Then we'll filter for the collection units we care about. Below, we grab the collectionunits table as a list, reformat it into a dataframe, and then an sf object, and plot it on top of our map.
+The collectionunits table is the place to go to learn about core-specific metadata, including precise core location. If a site is often a lake or peat bog, the collection unit is usually a single core from the site. In order to access the collectionunits associated with our Tanganyika sites, we first need to download the entire collectionunits table. Then we'll filter for the collection units we care about. 
+
+Below, we grab the collectionunits table as a list, reformat it into a dataframe, and then an sf object, and plot it on top of our map. Because we're not grabbing metadata nested in collectionunits, we don't need to do the loop twice as we did above to find the number of rows we need for our matrix object. Instead, we know that the number of rows will just be equal to the number of entries in the collunits list - that is, the length of collunits.
 
 
 ```{r collectionunits, warning=FALSE}
