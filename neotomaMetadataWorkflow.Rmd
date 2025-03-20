@@ -68,9 +68,11 @@ table tr th :last-child, table tr td :last-child {
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
 ```{r klippy, echo=FALSE, include=TRUE}
 klippy::klippy()
 ```
+
 # Introduction
 
 The Neotoma Paleoecology Database empowers users to generate new paleobiological insights through its curation of thousands of paleo datasets and associated metadata. The extent of the metadata that Neotoma curates may not be obvious to its users, because it is not all exposed in the Neotoma Explorer app, or even in the functions provided by the ```neotoma2``` R package. If you are unfamiliar with a paleorecord, then it is especially important for you to grapple with its metadata to ensure that you understand the data you are working with.

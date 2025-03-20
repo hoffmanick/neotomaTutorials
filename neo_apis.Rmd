@@ -66,26 +66,25 @@ table tr th :last-child, table tr td :last-child {
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+```{r klippy, echo=FALSE, include=TRUE}
+klippy::klippy()
+```
+
 # Introduction
 
-This page will introduce the use of Neotoma APIs and describe some situations when they might be preferable to the use of the Neotoma2 R package.
+This page will introduce the use of Neotoma APIs and describe some situations when they might be preferable to the use of the ```neotoma2``` R package.
 
 ```{r packages, warning=FALSE, message=FALSE,echo=FALSE}
 
-library(neotoma2)
-library(tidyverse)
-library(DT)
-library(geojsonsf)
-library(sf)
-library(leaflet)
-library(httr)
-library(jsonlite)
-library(ggplot2)
-library(analogue)
-library(raster)
-library(tmap)
-library(rosm)
-library(osmdata)
+if (length(grep("pacman",as.data.frame(installed.packages())$Package)) ==0) {
+  install.packages("pacman") 
+  library(pacman)
+  p_load(neotoma2,tidyverse,DT,geojsonsf,sf,leaflet,httr,ggplot2,analogue,raster,rosm,osmdata,jsonlite)
+} else {
+  library(pacman)
+  p_load(neotoma2,tidyverse,DT,geojsonsf,sf,leaflet,httr,ggplot2,analogue,raster,rosm,osmdata,jsonlite)}
+
+
 ```
 
 # What is an API?
@@ -98,7 +97,7 @@ The APIs we're concerned with here are Web APIs. That is, they're APIs that use 
 
 There are a range of Neotoma APIs that can be accessed through this [page](https://api.neotomadb.org/api-docs/). When you call a Web API, it follows the HTTP protocol, which means you issue a request like GET, POST, or PUT, etc., and you receive a response. Let's see how we can make these API calls in R. We'll need to download the library ```httr```, which has those HTTP calls like ```GET()``` as well as a ```content()``` function that helps decode the response we receive.   
 
-We'll make the following API call: https://api.neotomadb.org/v2.0/data/occurrences?taxonid=35619&limit=10. This call will return the first 10 occurrences within the Neotoma database of samples with taxon id 35619, which corresponds to <i>Canis spp.</i>. (How do I know this taxon id is the right one for Canis? See below!)
+We'll make the following API call: https://api.neotomadb.org/v2.0/data/occurrences?taxonid=35619&limit=10. This call will return the first 10 occurrences within the Neotoma database of samples with taxon id 35619, which corresponds to <i>Canis spp.</i> (How do I know this taxon id is the right one for Canis? See below!)
 
 We want to wrap our call in the ```GET()``` function, and then decode the contents.
 
@@ -142,7 +141,9 @@ for (i in seq(length(insides))) {
 }
 
 canis_df = as.data.frame(canis_mat)
-names(canis_df) = c("occid","taxonid","taxonname","value","units","datasetid","siteid","sitename","altitude","location","datasettype","database")
+names(canis_df) = c("occid","taxonid","taxonname","value",
+                    "units","datasetid","siteid","sitename",
+                    "altitude","location","datasettype","database")
 
 ```
 
@@ -190,11 +191,11 @@ datatable(canis_df, rownames=FALSE)
 
 ## The Neotoma2 R package and the API
 
-You may not have used an API explicitly before, but if you've used the ```Neotoma2``` R package, then you've already used it implicitly. All ```Neotoma2``` functions at some point require use of the helper function ```neotoma2::parseURL()```. This function is somewhat long, but we can use ```grep()``` to search through it for any mention of an API. When we do we get the following result: 
+You may not have used an API explicitly before, but if you've used the ```neotoma2``` R package, then you've already used it implicitly. All ```neotoma2``` functions at some point require use of the helper function ```neotoma2::parseURL()```. This function is somewhat long, but we can use ```grep()``` to search through it for any mention of an API. When we do we get the following result: 
 
 `r grep("api",deparse(neotoma2::parseURL),value=TRUE)`
 
-In other words, any ```Neotoma2``` function is ultimately using the Neotoma API to communicate with the database. So why would we ever want to use the APIs directly, rather than mediate through the ```neotoma2``` R package? There are at least two reasons:
+```parseURL()``` calls the Neotoma API for the ```neotoma2``` R package. In other words, any ```neotoma2``` function is ultimately using the Neotoma API to communicate with the database. So why would we ever want to use the APIs directly, rather than mediate through the ```neotoma2``` R package? There are at least two reasons:
 
 
 <ol>
@@ -225,9 +226,13 @@ bbox_geojson = sf_geojson(coordinates_sf)
 
 R_getsites_time = system.time(neotoma2::get_sites(loc = bbox_geojson, all_data = TRUE))
 
-api_sites = content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc=",bbox_geojson,"&limit=9999&offset=0")))$data
+api_sites = content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc=",
+                               bbox_geojson,
+                               "&limit=9999&offset=0")))$data
 
-api_getsites_time = system.time(content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc=",bbox_geojson,"&limit=99999&offset=0")))$data)
+api_getsites_time = system.time(content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc=",
+                                                   bbox_geojson,
+                                                   "&limit=99999&offset=0")))$data)
 
 print(length(api_sites))
 
@@ -262,14 +267,18 @@ bbox_geojson1 = sf_geojson(coordinates1_sf)
 
 R_getsites_time1 = system.time(neotoma2::get_sites(loc = bbox_geojson1, all_data = TRUE))
 
-api_sites1 = content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc=",bbox_geojson1,"&limit=9999&offset=0")))$data
+api_sites1 = content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc=",
+                                bbox_geojson1,
+                                "&limit=9999&offset=0")))$data
 
-api_getsites_time1 = system.time(content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc=",bbox_geojson1,"&limit=99999&offset=0")))$data)
+api_getsites_time1 = system.time(content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc=",
+                                                    bbox_geojson1,
+                                                    "&limit=99999&offset=0")))$data)
 
 print(length(api_sites1))
 
 ```
-For alomst 500 sites, it takes about 15 seconds for the R package, and still just about 1 second for the API:
+For almost 500 sites, it takes about 15 seconds for the R package, and still just about 1 second for the API:
 
 ``` {r howa}
 print(R_getsites_time1)
@@ -290,9 +299,13 @@ bbox_geojson2 = sf_geojson(coordinates2_sf)
 
 R_getsites_time2 = system.time(neotoma2::get_sites(loc = bbox_geojson2, all_data = TRUE))
 
-api_sites2 = content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc=",bbox_geojson2,"&limit=9999&offset=0")))$data
+api_sites2 = content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc=",
+                                bbox_geojson2,
+                                "&limit=9999&offset=0")))$data
 
-api_getsites_time2 = system.time(content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc=",bbox_geojson2,"&limit=99999&offset=0")))$data)
+api_getsites_time2 = system.time(content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc=",
+                                                    bbox_geojson2,
+                                                    "&limit=99999&offset=0")))$data)
 
 print(length(api_sites2))
 ```
@@ -322,9 +335,13 @@ bbox_geojson3 = sf_geojson(coordinates3_sf)
 
 R_getsites_time3 = system.time(neotoma2::get_sites(loc = bbox_geojson3, all_data = TRUE))
 
-api_sites3 = content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc=",bbox_geojson3,"&limit=9999&offset=0")))$data
+api_sites3 = content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc=",
+                                bbox_geojson3,
+                                "&limit=9999&offset=0")))$data
 
-api_getsites_time3 = system.time(content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc=",bbox_geojson3,"&limit=99999&offset=0")))$data)
+api_getsites_time3 = system.time(content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc=",
+                                                    bbox_geojson3,
+                                                    "&limit=99999&offset=0")))$data)
 
 
 print(R_getsites_time3)
@@ -346,22 +363,19 @@ bbox_geojson4 = sf_geojson(coordinates4_sf)
 
 R_getsites_time4 = system.time(neotoma2::get_sites(loc = bbox_geojson4, all_data = TRUE))
 
-api_sites4 = content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc=",bbox_geojson4,"&limit=9999&offset=0")))$data
+api_sites4 = content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc=",
+                                bbox_geojson4,
+                                "&limit=9999&offset=0")))$data
 
-api_getsites_time4 = system.time(content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc=",bbox_geojson4,"&limit=99999&offset=0")))$data)
+api_getsites_time4 = system.time(content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc=",
+                                                    bbox_geojson4,
+                                                    "&limit=99999&offset=0")))$data)
 
 
 
 print(R_getsites_time4)
 print(api_getsites_time4)
 print(length(api_sites4))
-
-#tm_shape(osm.raster(coordinates4_sf)) + tm_rgb() +
-#  tm_shape(coordinates4_sf) + tm_borders(col="red") +
-#  tm_shape(coordinates3_sf) + tm_borders(col="blue") +
-#  tm_shape(coordinates2_sf) + tm_borders(col="black") +
-#  tm_shape(coordinates1_sf) + tm_borders(col="green") +
-#  tm_shape(coordinates_sf) + tm_borders(col="white")
 
 
 ```
@@ -383,9 +397,13 @@ bbox_geojsona = sf_geojson(coordinatesa_sf)
 
 R_getsites_timea = system.time(neotoma2::get_sites(loc = bbox_geojsona, all_data = TRUE))
 
-api_sitesa = content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc=",bbox_geojsona,"&limit=9999&offset=0")))$data
+api_sitesa = content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc=",
+                                bbox_geojsona,
+                                "&limit=9999&offset=0")))$data
 
-api_getsites_timea = system.time(content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc=",bbox_geojsona,"&limit=99999&offset=0")))$data)
+api_getsites_timea = system.time(content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc=",
+                                                    bbox_geojsona,
+                                                    "&limit=99999&offset=0")))$data)
 
 
 
@@ -517,9 +535,15 @@ Below you can see how the R package gets slower and slower the greater the numbe
 
 ```{r neo2download_NA}
 
-Rtimes = c(R_getsites_time[[3]],R_getsites_time1[[3]],R_getsites_time2[[3]],R_getsites_time3[[3]],R_getsites_time4[[3]],R_getsites_timea[[3]],R_getsites_timeb[[3]],R_getsites_timec[[3]],R_getsites_timed[[3]],R_getsites_timee[[3]],R_getsites_timef[[3]],R_getsites_timeg[[3]])
+Rtimes = c(R_getsites_time[[3]],R_getsites_time1[[3]],R_getsites_time2[[3]],R_getsites_time3[[3]],
+           R_getsites_time4[[3]],R_getsites_timea[[3]],R_getsites_timeb[[3]],
+           R_getsites_timec[[3]],R_getsites_timed[[3]],R_getsites_timee[[3]],
+           R_getsites_timef[[3]],R_getsites_timeg[[3]])
 
-apitimes = c(api_getsites_time[[3]],api_getsites_time1[[3]],api_getsites_time2[[3]],api_getsites_time3[[3]],api_getsites_time4[[3]],api_getsites_timea[[3]],api_getsites_timeb[[3]],api_getsites_timec[[3]],api_getsites_timed[[3]],api_getsites_timee[[3]],api_getsites_timef[[3]],api_getsites_timeg[[3]])
+apitimes = c(api_getsites_time[[3]],api_getsites_time1[[3]],api_getsites_time2[[3]],api_getsites_time3[[3]],
+             api_getsites_time4[[3]],api_getsites_timea[[3]],api_getsites_timeb[[3]],api_getsites_timec[[3]],
+             api_getsites_timed[[3]],api_getsites_timee[[3]],
+             api_getsites_timef[[3]],api_getsites_timeg[[3]])
 
 site_num = c(length(api_sites),length(api_sites1),length(api_sites2),length(api_sites3),length(api_sites4),length(api_sitesa),length(api_sitesb),length(api_sitesc),length(api_sitesd),length(api_sitese),length(api_sitesf),length(api_sitesg))
 
@@ -558,7 +582,10 @@ for (i in seq(length(taxa))) {
 
 
 taxa_df = as.data.frame(taxa_mat)
-names(taxa_df) = c("taxonid","taxoncode","taxonname","author","valid","highertaxonid","extinct","taxagroupid","publicationid","validatorid","validatedate","notes","recdatecreated","recdatemodified")
+names(taxa_df) = c("taxonid","taxoncode","taxonname","author",
+                   "valid","highertaxonid","extinct","taxagroupid",
+                   "publicationid","validatorid","validatedate",
+                   "notes","recdatecreated","recdatemodified")
 
 datatable(taxa_df[grep("Canis",taxa_df$taxonname),],rownames=FALSE)
 
