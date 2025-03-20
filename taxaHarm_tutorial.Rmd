@@ -66,6 +66,11 @@ table tr th :last-child, table tr td :last-child {
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+```{r klippy, echo=FALSE, include=TRUE}
+klippy::klippy()
+```
+
+
 # Introduction
 
 When you are using and comparing pollen data from multiple sites, it is important to make sure pollen taxa are named consistently across sites. This process is called taxon harmonization. Throughout this tutorial we will be using <i>Olea</i>, the olive, as an example.
@@ -86,20 +91,14 @@ We'll first load up some packages we're going to be using, and then grab some po
 
 ```{r packages,message=FALSE,warning=FALSE}
 
-library(neotoma2)
-library(tidyverse)
-library(sf)
-library(geojsonsf)
-library(httr)
-library(jsonlite)
-library(stringr)
-library(ggplot2)
-library(leaflet)
-library(tmap)
-library(rosm)
-library(osmdata)
-library(DT)
-library(plotly)
+if (length(grep("pacman",as.data.frame(installed.packages())$Package)) ==0) {
+  install.packages("pacman") 
+  library(pacman)
+  p_load(neotoma2,tidyverse,DT,geojsonsf,sf,leaflet,httr,stringr, ggplot2, tmap, rosm, osmdata,plotly)
+} else {
+  library(pacman)
+  p_load(neotoma2,tidyverse,DT,geojsonsf,sf,leaflet,httr,stringr, ggplot2, tmap, rosm, osmdata,plotly)}
+
 ```
 
 We make a bounding box that encompasses all of Africa. Then we grab all Neotoma sites from that box, and filter for just those datasetids that concern pollen. Then we use the Neotoma2 package to download all of those pollen data.
@@ -126,10 +125,9 @@ tm_shape(osm.raster(coordinates_sf)) +
 
 coord_json = sf_geojson(coordinates_sf)
 
-
-altmin = 000 #m
-
-sites = content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?altmin=",altmin,"&loc=",coord_json,"&limit=9999&offset=0")))$data
+sites = content(GET(paste0("https://api.neotomadb.org/v2.0/data/sites?loc=",
+                           coord_json,
+                           "&limit=9999&offset=0")))$data
 
 
 idx = 0
@@ -179,7 +177,9 @@ for (i in seq(length(sites))) {
 
 sites_df = as.data.frame(sites_mat)
 
-names(sites_df) = c("siteid","sitename","sitedescription","geography","altitude","handle","collectionunit","collectionunitid","collectionunittype","datasetid","datasettype")
+names(sites_df) = c("siteid","sitename","sitedescription","geography",
+                    "altitude","handle","collectionunit","collectionunitid",
+                    "collectionunittype","datasetid","datasettype")
 
 
 datasetids = sites_df %>% dplyr::filter(datasettype == "pollen") %>% dplyr::distinct(datasetid)
@@ -200,9 +200,12 @@ We'll manipulate the data little bit to make sums of pollen counts by site and a
 apd_harmTable = read.csv("APD_dictionnary_export.csv",row.names=NULL,sep=";")
 
 
-poltots = data %>% left_join(apd_harmTable, by=join_by(variablename == Taxon..original.name.)) %>% group_by(siteid,age) %>% summarize(poltot = sum(value))
+poltots = data %>% left_join(apd_harmTable, by=join_by(variablename == Taxon..original.name.)) %>%
+  group_by(siteid,age) %>% summarize(poltot = sum(value))
 
-pollendata = data  %>% left_join(poltots) %>% group_by(siteid,age,variablename) %>% summarize(prop = value/poltot, lat=lat, elev = elev) %>% left_join(apd_harmTable, by=join_by(variablename == Taxon..original.name.))
+pollendata = data  %>% left_join(poltots) %>% group_by(siteid,age,variablename) %>%
+  summarize(prop = value/poltot, lat=lat, elev = elev) %>% 
+  left_join(apd_harmTable, by=join_by(variablename == Taxon..original.name.))
 
 
 ```
@@ -215,7 +218,10 @@ When we plot the elevation of those occurrences over time, we get a plot that sh
 
 
 ``` {r partthefifth, warning = FALSE, message = FALSE}
-oleacap_noHarm = pollendata %>% dplyr::filter(variablename == "Olea capensis") %>% dplyr::filter(!is.na(prop)) %>%
+oleacap_noHarm = pollendata %>%
+  dplyr::filter(variablename == "Olea capensis") %>%
+  dplyr::filter(!is.na(prop)) %>%
+  
   dplyr::filter(prop > 0.05)
 
 
@@ -235,8 +241,13 @@ The story we got from those <i>Olea capensis</i> data seems reliable. But we mig
 ```{r part-three, warning = FALSE, message = FALSE}
 
 
-oleatable = pollendata %>% dplyr::filter(str_detect(variablename,"Olea")) %>%
-  dplyr::filter(str_detect(variablename,"capensis")) %>% group_by(variablename) %>% count() %>% left_join(apd_harmTable, by=join_by(variablename == Taxon..original.name.)) %>% arrange(desc(n))
+oleatable = pollendata %>%
+  dplyr::filter(str_detect(variablename,"Olea")) %>%
+  
+  dplyr::filter(str_detect(variablename,"capensis")) %>%
+  group_by(variablename) %>% count() %>%
+  left_join(apd_harmTable, by=join_by(variablename == Taxon..original.name.)) %>%
+  arrange(desc(n))
  
 datatable(oleatable[c(1,3,2)],rownames=FALSE)
 
@@ -254,7 +265,10 @@ When we plot these extended data over our old data, we see a clear increase in e
 
 ``` {r again}
 
-oleacap_Harm = pollendata %>% dplyr::filter(variablename %in% oleatable$variablename) %>% dplyr::filter(!is.na(prop)) %>%
+oleacap_Harm = pollendata %>%
+  dplyr::filter(variablename %in% oleatable$variablename) %>%
+  dplyr::filter(!is.na(prop)) %>%
+  
   dplyr::filter(prop > 0.05)
 
 
@@ -281,7 +295,9 @@ First we'll grab the entire sampleanalysts table from Neotoma and filter for tho
 
 
 text="sampleanalysts"
-analysts = content(GET(paste0('https://api.neotomadb.org/v2.0/data/dbtables/',text,'?count=false&limit=999999&offset=0')))$data
+analysts = content(GET(paste0('https://api.neotomadb.org/v2.0/data/dbtables/',
+                              text,
+                              '?count=false&limit=999999&offset=0')))$data
 
 analyst_mat = matrix(nrow = length(analysts),ncol=6)
 for (i in seq(length(analysts))) {
@@ -294,7 +310,8 @@ for (i in seq(length(analysts))) {
 
 analyst_df = as.data.frame(analyst_mat)
 
-names(analyst_df) = c("analystid","sampleid","contactid","analystorder","recdatecreated","recdatemodified")
+names(analyst_df) = c("analystid","sampleid","contactid",
+                      "analystorder","recdatecreated","recdatemodified")
 
 
 distinct_samples = data %>% distinct(sampleid)
@@ -345,13 +362,22 @@ In order to visualize all of these points in the same space of all the possible 
 ``` {r more-granular}
 
 
-wide_data = data %>% dplyr::filter(siteid %in% merger_east$siteid) %>% left_join(merger) %>%  left_join(apd_harmTable, by=join_by(variablename == Taxon..original.name.)) %>% dplyr::filter(!is.na(Taxon..revised.nomenclature.)) %>% 
-  group_by(contactid,variablename) %>% count() %>% pivot_wider(id_cols = contactid, names_from = variablename, values_from = n, values_fill = 0) 
+wide_data = data %>%
+  dplyr::filter(siteid %in% merger_east$siteid) %>%
+  left_join(merger) %>%  left_join(apd_harmTable, by=join_by(variablename == Taxon..original.name.)) %>%
+  dplyr::filter(!is.na(Taxon..revised.nomenclature.)) %>% 
+  group_by(contactid,variablename) %>% count() %>%
+  pivot_wider(id_cols = contactid, names_from = variablename, values_from = n, values_fill = 0) 
 
 wide_data[,-1][wide_data[,-1] !=0 ] = 1
 
 
-wide_data_harm = data %>% dplyr::filter(siteid %in% merger_east$siteid) %>% left_join(merger) %>% left_join(apd_harmTable, by=join_by(variablename == Taxon..original.name.)) %>% dplyr::filter(!is.na(Taxon..revised.nomenclature.)) %>% group_by(contactid,Taxon..revised.nomenclature.) %>% count() %>% pivot_wider(id_cols = contactid, names_from = Taxon..revised.nomenclature., values_from = n, values_fill = 0) 
+wide_data_harm = data %>%
+  dplyr::filter(siteid %in% merger_east$siteid) %>%
+  left_join(merger) %>%
+  left_join(apd_harmTable, by=join_by(variablename == Taxon..original.name.)) %>%
+  dplyr::filter(!is.na(Taxon..revised.nomenclature.)) %>% group_by(contactid,Taxon..revised.nomenclature.) %>%
+  count() %>% pivot_wider(id_cols = contactid, names_from = Taxon..revised.nomenclature., values_from = n, values_fill = 0) 
 
 wide_data_harm[,-1][wide_data_harm[,-1] !=0 ] = 1
 
@@ -367,7 +393,9 @@ names(added_part_harm) = extranames_harm[[1]]
 
 extranames_noharm = as.data.frame(names(wide_data_harm))
 names(extranames_noharm) = c("extraharm")
-extranames_noharm = extranames_noharm %>% dplyr::filter(!extraharm %in% names(wide_data)) %>% dplyr::filter(!extraharm %in% c("pc1","pc2"))
+extranames_noharm = extranames_noharm %>%
+  dplyr::filter(!extraharm %in% names(wide_data)) %>%
+  dplyr::filter(!extraharm %in% c("pc1","pc2"))
 
 added_part_noharm = as.data.frame(matrix(nrow=30,ncol=length(extranames_noharm[[1]]),data=0))
 names(added_part_noharm) = extranames_noharm[[1]]
